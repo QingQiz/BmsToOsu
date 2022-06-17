@@ -1,0 +1,16 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "BmsToOsu", "BmsToOsu\BmsToOsu.csproj", "{8ED7D342-DC91-48C8-AF86-17424C647139}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{8ED7D342-DC91-48C8-AF86-17424C647139}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{8ED7D342-DC91-48C8-AF86-17424C647139}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{8ED7D342-DC91-48C8-AF86-17424C647139}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{8ED7D342-DC91-48C8-AF86-17424C647139}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+EndGlobal
