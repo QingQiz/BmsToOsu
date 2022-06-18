@@ -14,6 +14,8 @@ Parser.Default.ParseArguments<Option>(args)
     {
         foreach (var song in Directory.GetDirectories(o.InputPath).Take(o.Number <= 0 ? int.MaxValue : o.Number))
         {
+            logger.Info($"Processing {Path.GetFileName(song)}");
+
             var bms = Directory.GetFiles(song, "*.bms", SearchOption.TopDirectoryOnly);
 
             var ftc = new HashSet<string>();
@@ -22,7 +24,7 @@ Parser.Default.ParseArguments<Option>(args)
 
             var osz = dest + ".osz";
 
-            if (File.Exists(osz))
+            if (!o.NoZip && File.Exists(osz))
             {
                 logger.Warn($"{osz} exists, ignoring...");
                 continue;
@@ -41,15 +43,21 @@ Parser.Default.ParseArguments<Option>(args)
                 File.WriteAllText(Path.Join(dest, Path.GetFileNameWithoutExtension(fp) + ".osu"), osu);
             }
 
-            foreach (var c in ftc)
+            if (!o.NoCopy)
             {
-                File.Copy(Path.Join(song, c), Path.Join(dest, c), true);
+                foreach (var c in ftc)
+                {
+                    File.Copy(Path.Join(song, c), Path.Join(dest, c), true);
+                }
             }
 
-            if (File.Exists(osz)) File.Delete(osz);
+            if (!o.NoZip)
+            {
+                if (File.Exists(osz)) File.Delete(osz);
 
-            ZipFile.CreateFromDirectory(dest, osz, CompressionLevel.Fastest, false);
+                ZipFile.CreateFromDirectory(dest, osz, CompressionLevel.Fastest, false);
 
-            Directory.Delete(dest, true);
+                Directory.Delete(dest, true);
+            }
         }
     });

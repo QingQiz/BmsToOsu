@@ -12,4 +12,10 @@ public class Option
     
     [Option('n', Required = false, Default = 0, HelpText = "Maximum number to parse")]
     public int Number { get; set; }
+    
+    [Option("no-zip", Required = false, Default = false, HelpText = "whether zip folder to .osz")]
+    public bool NoZip { get; set; }
+
+    [Option("no-copy", Required = false, Default = false, HelpText = "whether copy sound/image/video to folder or .osz")]
+    public bool NoCopy { get; set; }
 }

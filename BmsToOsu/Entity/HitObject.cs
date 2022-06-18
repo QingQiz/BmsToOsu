@@ -5,5 +5,5 @@ public class HitObject
     public double StartTime { get; set; }
     public double EndTime { get; set; }
     public bool IsLongNote;
-    public KeySound? KeySound;
+    public string HitSoundFile { get; set; } = "";
 }

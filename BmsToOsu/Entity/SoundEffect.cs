@@ -2,7 +2,12 @@
 
 public class SoundEffect
 {
-    public double StartTime;
-    public int Sample;
-    public int Volume;
+    public readonly double StartTime;
+    public readonly string SoundFile;
+
+    public SoundEffect(double time, string file)
+    {
+        StartTime = time;
+        SoundFile = file;
+    }
 }

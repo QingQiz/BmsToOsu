@@ -1,6 +1,4 @@
-﻿using System.Text;
-
-namespace BmsToOsu.Utils;
+﻿namespace BmsToOsu.Utils;
 
 public static class StringExt
 {

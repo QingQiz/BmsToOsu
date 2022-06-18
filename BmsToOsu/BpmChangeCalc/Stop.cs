@@ -1,6 +1,6 @@
-﻿namespace BmsToOsu.Entity;
+﻿namespace BmsToOsu.BpmChangeCalc;
 
-public class LocalStop
+public class Stop
 {
     public double Duration;
     public double Position;

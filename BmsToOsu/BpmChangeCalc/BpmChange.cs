@@ -1,6 +1,6 @@
-﻿namespace BmsToOsu.Entity;
+﻿namespace BmsToOsu.BpmChangeCalc;
 
-public class LocalBpmChange
+public class BpmChange
 {
     public double Position;
     public double Bpm;

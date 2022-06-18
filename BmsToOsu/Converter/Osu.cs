@@ -92,10 +92,9 @@ public static class Osu
 
         foreach (var sfx in data.SoundEffects)
         {
-            var soundName = data.AudioData.StringArray[sfx.Sample - 1];
-            bd.AppendLine($"Sample,{(int)sfx.StartTime},0,\"{soundName}\",100");
+            bd.AppendLine($"Sample,{(int)sfx.StartTime},0,\"{sfx.SoundFile}\",100");
 
-            fileToCp.Add(soundName);
+            fileToCp.Add(sfx.SoundFile);
         }
 
         bd.AppendLine("[TimingPoints]");
@@ -124,12 +123,13 @@ public static class Osu
             }
         }
 
-        var laneSize = 512.0 / 7;
-
         bd.AppendLine("[HitObjects]");
+
+        const double laneSize = 512.0 / 7;
 
         foreach (var (lane, objects) in data.HitObject)
         {
+            var xPos = (int)Math.Floor(laneSize * lane - laneSize / 2);
             foreach (var obj in objects)
             {
                 var objType = 1 << 0;
@@ -139,25 +139,14 @@ public static class Osu
                     objType = 1 << 7;
                 }
 
-                var xPos = laneSize * lane;
-                xPos -= laneSize / 2.0;
+                if (!obj.HitSoundFile.Any()) continue;
 
-                if (obj.KeySound == null) continue;
+                fileToCp.Add(obj.HitSoundFile);
 
-                var hitSound = data.AudioData.StringArray[obj.KeySound.Sample - 1];
-
-                fileToCp.Add(hitSound);
-
-                if (objType == 1 << 7 && (int)obj.EndTime > (int)obj.StartTime)
-                {
-                    bd.AppendLine(
-                        $"{(int)Math.Floor(xPos)},192,{(int)obj.StartTime},{objType},0,{(int)obj.EndTime}:0:0:0:0:{hitSound}");
-                }
-                else
-                {
-                    bd.AppendLine(
-                        $"{(int)Math.Floor(xPos)},192,{(int)obj.StartTime},{1<<0},0,0:0:0:0:{hitSound}");
-                }
+                bd.AppendLine(
+                    obj.IsLongNote
+                        ? $"{xPos},192,{(int)obj.StartTime},{objType},0,{(int)obj.EndTime}:0:0:0:0:{obj.HitSoundFile}"
+                        : $"{xPos},192,{(int)obj.StartTime},{1 << 0},0,0:0:0:0:{obj.HitSoundFile}");
             }
         }
 
