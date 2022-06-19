@@ -1,5 +1,4 @@
 ﻿using System.Text;
-using System.Text.RegularExpressions;
 using BmsToOsu.BpmChangeCalc;
 using BmsToOsu.Utils;
 using log4net;
@@ -361,8 +360,10 @@ public class BmsFileData
 
         var startTrackAt = 0.0;
 
-        foreach (var track in data.TrackLines.Keys.OrderBy(k => k))
+        foreach (var track in Enumerable.Range(1, data.TrackLines.Keys.Max() + 1))
         {
+            if (!data.TrackLines.ContainsKey(track)) data.TrackLines[track] = new List<Line>();
+
             var bpmChangeCollection =
                 new BpmChangeCollection(track, data.TrackLines[track], data.Indices.BpmChanges, data.Indices.Stops);
 
@@ -450,8 +451,6 @@ public class BmsFileData
             }
 
             startTrackAt += fullLengthOfTrack;
-
-            data.TimingPoints[startTrackAt] = initBpm;
         }
 
         data.BgaFrames.Sort((a, b) => a.StartTime.CompareTo(b.StartTime));

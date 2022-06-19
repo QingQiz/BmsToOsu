@@ -16,7 +16,9 @@ Parser.Default.ParseArguments<Option>(args)
         {
             logger.Info($"Processing {Path.GetFileName(song)}");
 
-            var bms = Directory.GetFiles(song, "*.bms", SearchOption.TopDirectoryOnly);
+            var bms = Directory
+                .GetFiles(song, "*.*", SearchOption.TopDirectoryOnly)
+                .Where(f => f.EndsWith(".bms") || f.EndsWith(".bml"));
 
             var ftc = new HashSet<string>();
 

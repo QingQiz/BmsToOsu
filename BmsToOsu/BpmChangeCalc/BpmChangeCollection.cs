@@ -168,13 +168,13 @@ public class BpmChangeCollection
 
         foreach (var stop in Stops)
         {
-            if (pos <= stop.Position) continue;
+            if (pos < stop.Position) continue;
 
             var bpmToUse = initBpm;
 
             foreach (var change in BpmChanges)
             {
-                if (change.Position < stop.Position)
+                if (change.Position <= stop.Position)
                 {
                     bpmToUse = change.Bpm;
                 }
