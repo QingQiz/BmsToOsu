@@ -9,7 +9,7 @@ public class BmsFileData
 {
     public BmsMetadata Metadata = null!;
     public double StartingBpm = 130;
-    public string LnObject;
+    public string LnObject = "";
     public Dictionary<int, List<Line>> TrackLines { get; } = new();
     public Dictionary<int, List<HitObject>> HitObject { get; } = new();
     public Dictionary<double, double> TimingPoints { get; } = new();

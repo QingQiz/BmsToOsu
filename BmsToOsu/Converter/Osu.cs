@@ -6,7 +6,7 @@ namespace BmsToOsu.Converter;
 
 public static class Osu
 {
-    public static (string, HashSet<string> fileToCp) ToOsuBeatMap(this BmsFileData data)
+    public static (string, HashSet<string> fileToCp) ToOsuBeatMap(this BmsFileData data, bool noKeySound = false)
     {
         var fileToCp = new HashSet<string>();
         var bd       = new StringBuilder();
@@ -32,7 +32,7 @@ public static class Osu
         bd.AppendLine($"Creator:{StringExt.AppendSubArtist(data.Metadata.Artist, data.Metadata.SubArtists)}");
         bd.AppendLine("Source:BMS");
         bd.AppendLine($"Tags:{data.Metadata.Tags}");
-        bd.AppendLine($"Version:Lv. {data.Metadata.Difficulty}");
+        bd.AppendLine($"Version:Lv. {data.Metadata.Difficulty}" + (noKeySound ? " [No HitSound]" : ""));
         bd.AppendLine("BeatmapID:0");
         bd.AppendLine("BeatmapSetID:0");
 
@@ -87,7 +87,7 @@ public static class Osu
                 bd.AppendLine($"Video,{(int)bga.StartTime},\"{bga.File}\"");
             }
 
-            fileToCp.Add(bga.File);
+            if (bga.File != null) fileToCp.Add(bga.File);
         }
 
         foreach (var sfx in data.SoundEffects)
@@ -95,6 +95,14 @@ public static class Osu
             bd.AppendLine($"Sample,{(int)sfx.StartTime},0,\"{sfx.SoundFile}\",100");
 
             fileToCp.Add(sfx.SoundFile);
+        }
+
+        if (noKeySound)
+        {
+            foreach (var hitObj in data.HitObject.Values.SelectMany(obj => obj))
+            {
+                bd.AppendLine($"Sample,{(int)hitObj.StartTime},0,\"{hitObj.HitSoundFile}\",100");
+            }
         }
 
         bd.AppendLine("[TimingPoints]");
@@ -143,10 +151,12 @@ public static class Osu
 
                 fileToCp.Add(obj.HitSoundFile);
 
+                var hitSound = noKeySound ? "" : obj.HitSoundFile;
+
                 bd.AppendLine(
                     obj.IsLongNote
-                        ? $"{xPos},192,{(int)obj.StartTime},{objType},0,{(int)obj.EndTime}:0:0:0:0:{obj.HitSoundFile}"
-                        : $"{xPos},192,{(int)obj.StartTime},{1 << 0},0,0:0:0:0:{obj.HitSoundFile}");
+                        ? $"{xPos},192,{(int)obj.StartTime},{objType},0,{(int)obj.EndTime}:0:0:0:0:{hitSound}"
+                        : $"{xPos},192,{(int)obj.StartTime},{1 << 0},0,0:0:0:0:{hitSound}");
             }
         }
 

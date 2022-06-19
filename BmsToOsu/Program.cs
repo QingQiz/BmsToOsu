@@ -43,6 +43,12 @@ Parser.Default.ParseArguments<Option>(args)
                 Directory.CreateDirectory(dest);
 
                 File.WriteAllText(Path.Join(dest, Path.GetFileNameWithoutExtension(fp) + ".osu"), osu);
+                
+                (osu, ftc2) = data.ToOsuBeatMap(noKeySound: true);
+
+                foreach (var c in ftc2) ftc.Add(c);
+
+                File.WriteAllText(Path.Join(dest, Path.GetFileNameWithoutExtension(fp) + "_NoHitSound.osu"), osu);
             }
 
             if (!o.NoCopy)
