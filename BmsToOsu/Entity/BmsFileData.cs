@@ -396,20 +396,30 @@ public class BmsFileData
                     // note
                     if (lane != -1)
                     {
-                        var hitObj = new HitObject
+                        // ln
+                        if (target == data.LnObject)
                         {
-                            StartTime  = startTrackAt + localOffset,
-                            IsLongNote = false
-                        };
-
-                        if (data.AudioMap.ContainsKey(target))
-                        {
-                            hitObj.HitSoundFile = data.AudioMap[target];
+                            var hitObj = data.HitObject[lane].Last();
+                            hitObj.EndTime    = startTrackAt + localOffset;
+                            hitObj.IsLongNote = true;
                         }
+                        // normal note
+                        else
+                        {
+                            var hitObj = new HitObject
+                            {
+                                StartTime  = startTrackAt + localOffset,
+                                IsLongNote = false
+                            };
+                            if (data.AudioMap.ContainsKey(target))
+                            {
+                                hitObj.HitSoundFile = data.AudioMap[target];
+                            }
 
-                        if (!data.HitObject.ContainsKey(lane)) data.HitObject[lane] = new List<HitObject>();
+                            if (!data.HitObject.ContainsKey(lane)) data.HitObject[lane] = new List<HitObject>();
 
-                        data.HitObject[lane].Add(hitObj);
+                            data.HitObject[lane].Add(hitObj);
+                        }
 
                         continue;
                     }
