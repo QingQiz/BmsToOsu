@@ -119,14 +119,15 @@ public class BpmChangeCollection
         Stops      = Stops.OrderBy(s => s.Position).ToList();
     }
 
-    public double GetDurationBeforePosition(double initBpm, double position)
+    public double GetDurationBeforePosition(double initBpm, double position, bool include = true)
     {
-        var bpmChangesBeforePos = BpmChanges.Where(c => c.Position <= position).ToList();
+        var bpmChangesBeforePos = BpmChanges
+            .Where(c => (include && c.Position <= position) || (!include && c.Position < position)).ToList();
 
         // no bpm change before position, return time before position + STOP time
         var totalDur = Timing.TrackDuration(initBpm, MeasureScale) * (position / 100.0);
 
-        if (!bpmChangesBeforePos.Any()) return totalDur + GetStopDurationBeforePosition(initBpm, position);
+        if (!bpmChangesBeforePos.Any()) return totalDur + GetStopDurationBeforePosition(initBpm, position, include);
 
         // otherwise, calculate the time before position using bpm change, and plus STOP time
         var bpm = initBpm;
@@ -151,13 +152,14 @@ public class BpmChangeCollection
             }
         }
 
-        return timeBeforePos + GetStopDurationBeforePosition(initBpm, position);
+        return timeBeforePos + GetStopDurationBeforePosition(initBpm, position, include);
     }
 
     /// <param name="initBpm"></param>
     /// <param name="pos">include the stop before pos</param>
+    /// <param name="include">include the position</param>
     /// <returns>the total amount of time that all STOP before the current time would cause</returns>
-    public double GetStopDurationBeforePosition(double initBpm, double pos)
+    public double GetStopDurationBeforePosition(double initBpm, double pos, bool include = true)
     {
         if (Stops.Count == 0)
         {
@@ -168,23 +170,28 @@ public class BpmChangeCollection
 
         foreach (var stop in Stops)
         {
-            if (pos < stop.Position) continue;
-
-            var bpmToUse = initBpm;
-
-            foreach (var change in BpmChanges)
+            if ((include && stop.Position <= pos) || (!include && stop.Position < pos))
             {
-                if (change.Position <= stop.Position)
-                {
-                    bpmToUse = change.Bpm;
-                }
-                else
-                {
-                    break;
-                }
-            }
+                var bpmToUse = initBpm;
 
-            totalOffset += Timing.GetStopDuration(bpmToUse, stop.Duration);
+                foreach (var change in BpmChanges)
+                {
+                    if (change.Position <= stop.Position)
+                    {
+                        bpmToUse = change.Bpm;
+                    }
+                    else
+                    {
+                        break;
+                    }
+                }
+
+                totalOffset += Timing.GetStopDuration(bpmToUse, stop.Duration);
+            }
+            else
+            {
+                break;
+            }
         }
 
         return totalOffset;
@@ -197,7 +204,7 @@ public class BpmChangeCollection
         // O(n^2), but easy to write
         foreach (var tc in BpmChanges)
         {
-            var timeBeforeChange = GetDurationBeforePosition(initBpm, tc.Position);
+            var timeBeforeChange = GetDurationBeforePosition(initBpm, tc.Position, false);
 
             points[currentTime + timeBeforeChange] = tc.Bpm;
         }
@@ -207,7 +214,7 @@ public class BpmChangeCollection
         {
             var stopTime = GetStopDurationBeforePosition(initBpm, stop.Position);
 
-            var timeBeforeStop = GetDurationBeforePosition(initBpm, stop.Position);
+            var timeBeforeStop = GetDurationBeforePosition(initBpm, stop.Position, false);
 
             points[currentTime + timeBeforeStop] = 0;
             points[currentTime + timeBeforeStop + stopTime] = BpmChanges

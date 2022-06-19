@@ -1,35 +1,7 @@
-﻿using BmsToOsu.BpmChangeCalc;
-
-namespace BmsToOsu.Utils;
+﻿namespace BmsToOsu.Utils;
 
 public static class Timing
 {
-    /// <param name="index">track index</param>
-    /// <param name="data"></param>
-    /// <returns>how much time to add based on the BPM changes given for the track</returns>
-    public static double BpmChangeOffset(int index, BpmChangeCollection data)
-    {
-        if (data.BpmChanges.Count == 0)
-        {
-            return 0;
-        }
-
-        var trackDuration = TrackDuration(data.BpmChanges[index].Bpm, data.MeasureScale);
-        if (index + 1 < data.BpmChanges.Count)
-        {
-            return trackDuration *
-                ((data.BpmChanges[index + 1].Position - data.BpmChanges[index].Position) / 100.0);
-        }
-
-        if (index + 1 == data.BpmChanges.Count)
-        {
-            return trackDuration * ((100.0 - data.BpmChanges[index].Position) / 100.0);
-        }
-
-        return 0;
-    }
-
-
     /// <param name="bpm"></param>
     /// <returns>the duration of a single beat of a track, in 4/4 meter, in milliseconds</returns>
     public static double BeatDuration(double bpm)

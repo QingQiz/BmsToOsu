@@ -384,7 +384,7 @@ public class BmsFileData
 
                     if (target == "00") continue;
 
-                    var localOffset = bpmChangeCollection.GetDurationBeforePosition(initBpm, notePos);
+                    var localOffset = bpmChangeCollection.GetDurationBeforePosition(initBpm, notePos, false);
 
                     // Sound Effect
                     if (lane == 0 || line.Channel == "01")
@@ -454,7 +454,6 @@ public class BmsFileData
         }
 
         data.BgaFrames.Sort((a, b) => a.StartTime.CompareTo(b.StartTime));
-
         return data;
     }
 }
