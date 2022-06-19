@@ -2,7 +2,6 @@
 
 ## TODO
 
-- [ ] Story Board
 - [ ] FIX: Long Note behaves strangely when bpm changes (e.g. [destr0yer][d0]). Suspected to be a bug of osu
 
 ## Usage
@@ -20,10 +19,14 @@ dotnet run --help
 click to expand
 </summary>
 
-- [Calamity Fortune][cf]
-- [Aleph0][a0]
-- [Credits][credit]
-- [Destr0yer][d0]
+- normal beatmaps
+  - [Calamity Fortune][cf]
+- bpm change
+  - [Aleph0][a0]
+- bga
+  - [Credits][credit]
+- long note
+  - [Destr0yer][d0]
 
 [cf]: http://yaruki0.sakura.ne.jp/event/ondanyugi5/impression.cgi?no=45
 [a0]: https://manbow.nothing.sh/event/event.cgi?action=More_def&num=498&event=110

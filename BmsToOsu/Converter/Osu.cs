@@ -62,11 +62,15 @@ public static class Osu
         {
             var bga = data.BgaFrames[i];
 
-            var endTime = 0.0;
+            var endTime = -1.0;
 
-            if (i + 1 != data.BgaFrames.Count)
+            for (var j = i + 1; j < data.BgaFrames.Count; j++)
             {
-                endTime = data.BgaFrames[i + 1].StartTime;
+                if (data.BgaFrames[j].Layer == bga.Layer)
+                {
+                    endTime = data.BgaFrames[j].StartTime;
+                    break;
+                }
             }
 
             var vExt  = Path.GetExtension(bga.File);
@@ -79,15 +83,15 @@ public static class Osu
 
             if (vExt is not (".wmv" or ".mpg" or ".avi" or ".mp4" or ".webm" or ".mkv"))
             {
-                bd.AppendLine($"Sprite,{layer},CenterRight,\"{bga.File}\",600,240");
-                bd.AppendLine($"_F,0,{(int)bga.StartTime},{(int)endTime},1");
+                bd.AppendLine($"Sprite,{layer},CentreRight,\"{bga.File}\",600,240");
+                bd.AppendLine($" F,0,{(int)bga.StartTime},{(int)endTime},1");
             }
             else
             {
                 bd.AppendLine($"Video,{(int)bga.StartTime},\"{bga.File}\"");
             }
 
-            if (bga.File != null) fileToCp.Add(bga.File);
+            if (!string.IsNullOrEmpty(bga.File)) fileToCp.Add(bga.File);
         }
 
         foreach (var sfx in data.SoundEffects)

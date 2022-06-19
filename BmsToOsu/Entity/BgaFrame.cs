@@ -3,6 +3,6 @@
 public class BgaFrame
 {
     public double StartTime;
-    public string? File;
+    public string File = "";
     public int Layer;
 }

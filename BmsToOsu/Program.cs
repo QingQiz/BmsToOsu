@@ -34,21 +34,27 @@ Parser.Default.ParseArguments<Option>(args)
 
             foreach (var fp in bms.Select(Path.GetFileName))
             {
-                var data = BmsFileData.FromFile(Path.Join(song, fp));
+                try
+                {
+                    var data = BmsFileData.FromFile(Path.Join(song, fp));
 
-                var (osu, ftc2) = data.ToOsuBeatMap();
+                    var (osu, ftc2) = data.ToOsuBeatMap();
 
-                foreach (var c in ftc2) ftc.Add(c);
+                    foreach (var c in ftc2) ftc.Add(c);
 
-                Directory.CreateDirectory(dest);
+                    Directory.CreateDirectory(dest);
 
-                File.WriteAllText(Path.Join(dest, Path.GetFileNameWithoutExtension(fp) + ".osu"), osu);
-                
-                (osu, ftc2) = data.ToOsuBeatMap(noKeySound: true);
+                    File.WriteAllText(Path.Join(dest, Path.GetFileNameWithoutExtension(fp) + ".osu"), osu);
 
-                foreach (var c in ftc2) ftc.Add(c);
+                    (osu, ftc2) = data.ToOsuBeatMap(noKeySound: true);
 
-                File.WriteAllText(Path.Join(dest, Path.GetFileNameWithoutExtension(fp) + "_NoHitSound.osu"), osu);
+                    foreach (var c in ftc2) ftc.Add(c);
+
+                    File.WriteAllText(Path.Join(dest, Path.GetFileNameWithoutExtension(fp) + "_NoHitSound.osu"), osu);
+                }
+                catch (InvalidDataException)
+                {
+                }
             }
 
             if (!o.NoCopy)
@@ -59,7 +65,7 @@ Parser.Default.ParseArguments<Option>(args)
                 }
             }
 
-            if (!o.NoZip)
+            if (!o.NoZip && Directory.Exists(dest))
             {
                 if (File.Exists(osz)) File.Delete(osz);
 

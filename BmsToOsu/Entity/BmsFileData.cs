@@ -13,7 +13,6 @@ public class BmsFileData
     public Dictionary<int, List<Line>> TrackLines { get; } = new();
     public Dictionary<int, List<HitObject>> HitObject { get; } = new();
     public Dictionary<double, double> TimingPoints { get; } = new();
-
     public List<BgaFrame> BgaFrames { get; } = new();
 
     // map audio reference to effect sound file name
@@ -426,6 +425,12 @@ public class BmsFileData
 
                     if (line.Channel is "04" or "07")
                     {
+                        if (!data.Indices.Bga.ContainsKey(target))
+                        {
+                            logger.Warn($"Bga frame {target} is not founded, ignoring...");
+                            continue;
+                        }
+
                         var t = data.Indices.Bga[target];
                         var l = 0;
 
