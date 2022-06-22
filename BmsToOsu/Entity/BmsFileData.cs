@@ -359,7 +359,7 @@ public class BmsFileData
 
         var startTrackAt = 0.0;
 
-        foreach (var track in Enumerable.Range(1, data.TrackLines.Keys.Max() + 1))
+        foreach (var track in Enumerable.Range(0, data.TrackLines.Keys.Max() + 1))
         {
             if (!data.TrackLines.ContainsKey(track)) data.TrackLines[track] = new List<Line>();
 

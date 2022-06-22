@@ -9,6 +9,11 @@ Logger.Config();
 
 var logger = LogManager.GetLogger("");
 
+var availableBmsExt = new[]
+{
+    ".bms", ".bml", ".bme", ".bmx"
+};
+
 Parser.Default.ParseArguments<Option>(args)
     .WithParsed(o =>
     {
@@ -18,7 +23,7 @@ Parser.Default.ParseArguments<Option>(args)
 
             var bms = Directory
                 .GetFiles(song, "*.*", SearchOption.TopDirectoryOnly)
-                .Where(f => f.EndsWith(".bms") || f.EndsWith(".bml"));
+                .Where(f => availableBmsExt.Any(ext => f.EndsWith(ext, StringComparison.OrdinalIgnoreCase)));
 
             var ftc = new HashSet<string>();
 
