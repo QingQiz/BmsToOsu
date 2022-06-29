@@ -26,8 +26,24 @@ public class BmsFileData
     {
         var logger = LogManager.GetLogger(typeof(BmsFileData))!;
 
-        // Shift-JIS
-        var lines = File.ReadAllLines(fp, CodePagesEncodingProvider.Instance.GetEncoding(932)!);
+        var bytes = File.ReadAllBytes(fp);
+
+        // ignore UTF-8 BOM
+        if (bytes[0] == 0xEF && bytes[1] == 0xBB && bytes[2] == 0xBF)
+        {
+            bytes = bytes[3..];
+        }
+
+        // ignore UTF-16 BOM
+        if (bytes[0] == 0xFF && bytes[1] == 0xFE)
+        {
+            bytes = bytes[2..];
+        }
+
+        // force Shift-JIS
+        var       shiftJis = CodePagesEncodingProvider.Instance.GetEncoding("Shift-JIS")!;
+        using var reader   = new StreamReader(new MemoryStream(bytes), shiftJis);
+        var       lines    = reader.ReadToEnd().Split(new[] { "\r\n", "\r", "\n" }, StringSplitOptions.None);
 
         var ignoreLine = false;
 
