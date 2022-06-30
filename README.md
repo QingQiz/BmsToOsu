@@ -8,8 +8,13 @@
 
 ```shell
 cd .\BmsToOsu
-dotnet run --help
+dotnet run -- --help
 ```
+
+## Example
+
+1. `dotnet run -- -i /path/to/G2R2018 -o /path/to/osu!/Songs/G2R2018 --no-zip --no-remove` will convert G2R2018 to osu beatmaps and put it into the osu! Song folder 
+2. `dotnet run -- -i /path/to/G2R2018 -o /G2R2018` will generate a .osz file named G2R2018.osz
 
 ### Tested on the following beatmaps:
 

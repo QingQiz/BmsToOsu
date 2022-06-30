@@ -19,12 +19,21 @@ Parser.Default.ParseArguments<Option>(args)
     {
         var osz = o.OutPath.EndsWith(".osz", StringComparison.OrdinalIgnoreCase) ? o.OutPath : o.OutPath + ".osz";
 
+        // avoid removing existing folder
         if (Directory.Exists(o.OutPath))
         {
             logger.Warn($"{o.OutPath} exists, `--no-remove` will be appended to the parameter");
             o.NoRemove = true;
         }
 
+        // avoid removing after generation
+        if (o.NoZip && !o.NoRemove)
+        {
+            logger.Warn("`--no-remove` is appended to the parameter");
+            o.NoRemove = true;
+        }
+
+        // avoid duplication
         if (File.Exists(osz))
         {
             logger.Warn($"{osz} exists, ignoring...");
