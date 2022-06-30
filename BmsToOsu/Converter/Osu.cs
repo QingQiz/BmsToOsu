@@ -6,7 +6,8 @@ namespace BmsToOsu.Converter;
 
 public static class Osu
 {
-    public static (string, HashSet<string> fileToCp) ToOsuBeatMap(this BmsFileData data, bool noKeySound = false)
+    public static (string, HashSet<string> fileToCp) ToOsuBeatMap(
+        this BmsFileData data, string dir, bool noKeySound = false)
     {
         var fileToCp = new HashSet<string>();
         var bd       = new StringBuilder();
@@ -46,21 +47,39 @@ public static class Osu
 
         bd.AppendLine("[Events]");
 
-        var bg = data.Metadata.StageFile;
+        var bg = "";
 
-        if (data.Metadata.Banner.Length > 0 && data.Metadata.StageFile.Length == 0)
+        if (File.Exists(Path.Join(dir, data.Metadata.StageFile)))
         {
             bg = data.Metadata.Banner;
         }
+        else if (File.Exists(Path.Join(dir, data.Metadata.Banner)))
+        {
+            bg = data.Metadata.StageFile;
+        }
 
-        if (bg.Length != 0)
+        if (string.IsNullOrEmpty(bg))
+        {
+            var ext = new[] { ".jpg", ".png", ".jpeg" };
+            bg = Directory
+                .GetFiles(dir, "*.*", SearchOption.TopDirectoryOnly)
+                .FirstOrDefault(f => ext.Any(e => f.EndsWith(e, StringComparison.OrdinalIgnoreCase))) ?? "";
+        }
+
+        if (!string.IsNullOrEmpty(bg))
         {
             bd.AppendLine($"0,0,\"{bg}\",0,0");
         }
 
+        // bga
         for (var i = 0; i < data.BgaFrames.Count; i++)
         {
             var bga = data.BgaFrames[i];
+
+            if (!File.Exists(Path.Join(dir, bga.File)))
+            {
+                continue;
+            }
 
             var endTime = -1.0;
 
@@ -94,6 +113,7 @@ public static class Osu
             if (!string.IsNullOrEmpty(bga.File)) fileToCp.Add(bga.File);
         }
 
+        // sound effect
         foreach (var sfx in data.SoundEffects)
         {
             bd.AppendLine($"Sample,{(int)sfx.StartTime},0,\"{sfx.SoundFile}\",100");
@@ -109,6 +129,7 @@ public static class Osu
             }
         }
 
+        // timing points
         bd.AppendLine("[TimingPoints]");
 
         foreach (var ((j, k), i) in data.TimingPoints.Select((x, y) => (x, y)))
@@ -135,6 +156,7 @@ public static class Osu
             }
         }
 
+        // note/ln
         bd.AppendLine("[HitObjects]");
 
         const double laneSize = 512.0 / 7;

@@ -63,7 +63,7 @@ Parser.Default.ParseArguments<Option>(args)
                 return;
             }
 
-            var (osu, ftc2) = data.ToOsuBeatMap();
+            var (osu, ftc2) = data.ToOsuBeatMap(dir);
 
             lock (ftc)
             {
