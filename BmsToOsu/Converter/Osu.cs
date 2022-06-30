@@ -31,7 +31,7 @@ public static class Osu
         bd.AppendLine($"ArtistUnicode:{data.Metadata.Artist}");
         bd.AppendLine($"Creator:{StringExt.AppendSubArtist(data.Metadata.Artist, data.Metadata.SubArtists)}");
         bd.AppendLine("Source:BMS");
-        bd.AppendLine($"Tags:{data.Metadata.Tags}");
+        bd.AppendLine($"Tags:{data.Metadata.Tags} BMS Converted");
         bd.AppendLine($"Version:Lv. {data.Metadata.Difficulty}" + (noKeySound ? " [No HitSound]" : ""));
         bd.AppendLine("BeatmapID:0");
         bd.AppendLine("BeatmapSetID:0");

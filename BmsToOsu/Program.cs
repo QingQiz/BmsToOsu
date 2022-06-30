@@ -19,6 +19,12 @@ Parser.Default.ParseArguments<Option>(args)
     {
         var osz = o.OutPath.EndsWith(".osz", StringComparison.OrdinalIgnoreCase) ? o.OutPath : o.OutPath + ".osz";
 
+        if (Directory.Exists(o.OutPath))
+        {
+            logger.Warn($"{o.OutPath} exists, `--no-remove` will be appended to the parameter");
+            o.NoRemove = true;
+        }
+
         if (File.Exists(osz))
         {
             logger.Warn($"{osz} exists, ignoring...");
@@ -26,40 +32,38 @@ Parser.Default.ParseArguments<Option>(args)
         }
 
         var ftc = new HashSet<string>();
-       
-        foreach (var song in Directory.GetDirectories(o.InputPath).Take(o.Number <= 0 ? int.MaxValue : o.Number))
+
+        var bms = Directory
+            .GetFiles(o.InputPath, "*.*", SearchOption.AllDirectories)
+            .Where(f => availableBmsExt.Any(ext => f.EndsWith(ext, StringComparison.OrdinalIgnoreCase)));
+
+        foreach (var fp in bms)
         {
-            logger.Info($"Processing {Path.GetFileName(song)}");
-
-            var bms = Directory
-                .GetFiles(song, "*.*", SearchOption.AllDirectories)
-                .Where(f => availableBmsExt.Any(ext => f.EndsWith(ext, StringComparison.OrdinalIgnoreCase)));
-
-            foreach (var fp in bms)
+            try
             {
-                try
-                {
-                    var dir = Path.GetDirectoryName(fp) ?? "";
+                logger.Info($"Processing {fp}");
 
-                    var data = BmsFileData.FromFile(fp);
+                var dir = Path.GetDirectoryName(fp) ?? "";
 
-                    var (osu, ftc2) = data.ToOsuBeatMap();
+                var data = BmsFileData.FromFile(fp);
 
-                    foreach (var c in ftc2) ftc.Add(Path.Join(dir, c));
+                var (osu, ftc2) = data.ToOsuBeatMap();
 
-                    var dest = dir.Replace(o.InputPath, o.OutPath);
+                foreach (var c in ftc2) ftc.Add(Path.Join(dir, c));
 
-                    Directory.CreateDirectory(dest);
-                    File.WriteAllText(Path.Join(dest, Path.GetFileNameWithoutExtension(fp) + ".osu"), osu);
-                }
-                catch (InvalidDataException)
-                {
-                }
+                var dest = dir.Replace(o.InputPath, o.OutPath);
+
+                Directory.CreateDirectory(dest);
+                File.WriteAllText(Path.Join(dest, Path.GetFileNameWithoutExtension(fp) + ".osu"), osu);
+            }
+            catch (InvalidDataException)
+            {
             }
         }
 
         if (!o.NoCopy)
         {
+            logger.Info("Copying sound files");
             Parallel.ForEach(ftc, c =>
             {
                 var dest = c.Replace(o.InputPath, o.OutPath);
@@ -71,13 +75,15 @@ Parser.Default.ParseArguments<Option>(args)
             });
         }
 
-        if (!o.NoZip && Directory.Exists(osz))
+        if (!o.NoZip && Directory.Exists(o.OutPath))
         {
+            logger.Info($"Creating {osz}");
             ZipFile.CreateFromDirectory(o.OutPath, osz, CompressionLevel.Fastest, false);
         }
 
         if (!o.NoRemove)
         {
+            logger.Info($"Removing {o.OutPath}");
             Directory.Delete(o.OutPath, true);
         }
     });
