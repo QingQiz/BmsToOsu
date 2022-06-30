@@ -8,6 +8,6 @@ public class BmsMetadata
     public string Difficulty = "";
     public string StageFile = "";
     public string Subtitle = "";
-    public List<string> SubArtists { get; }= new();
+    public List<string> SubArtists { get; } = new();
     public string Banner = "";
 }

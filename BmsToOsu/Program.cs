@@ -20,7 +20,7 @@ Parser.Default.ParseArguments<Option>(args)
         var osz = o.OutPath.EndsWith(".osz", StringComparison.OrdinalIgnoreCase) ? o.OutPath : o.OutPath + ".osz";
 
         // avoid removing existing folder
-        if (Directory.Exists(o.OutPath))
+        if (Directory.Exists(o.OutPath) && !o.NoRemove)
         {
             logger.Warn($"{o.OutPath} exists, `--no-remove` will be appended to the parameter");
             o.NoRemove = true;
@@ -46,29 +46,35 @@ Parser.Default.ParseArguments<Option>(args)
             .GetFiles(o.InputPath, "*.*", SearchOption.AllDirectories)
             .Where(f => availableBmsExt.Any(ext => f.EndsWith(ext, StringComparison.OrdinalIgnoreCase)));
 
-        foreach (var fp in bms)
+        Parallel.ForEach(bms, fp =>
         {
+            logger.Info($"Processing {fp}");
+
+            var dir = Path.GetDirectoryName(fp) ?? "";
+
+            BmsFileData data;
+
             try
             {
-                logger.Info($"Processing {fp}");
-
-                var dir = Path.GetDirectoryName(fp) ?? "";
-
-                var data = BmsFileData.FromFile(fp);
-
-                var (osu, ftc2) = data.ToOsuBeatMap();
-
-                foreach (var c in ftc2) ftc.Add(Path.Join(dir, c));
-
-                var dest = dir.Replace(o.InputPath, o.OutPath);
-
-                Directory.CreateDirectory(dest);
-                File.WriteAllText(Path.Join(dest, Path.GetFileNameWithoutExtension(fp) + ".osu"), osu);
+                data = BmsFileData.FromFile(fp);
             }
             catch (InvalidDataException)
             {
+                return;
             }
-        }
+
+            var (osu, ftc2) = data.ToOsuBeatMap();
+
+            lock (ftc)
+            {
+                foreach (var c in ftc2) ftc.Add(Path.Join(dir, c));
+            }
+
+            var dest = dir.Replace(o.InputPath, o.OutPath);
+
+            Directory.CreateDirectory(dest);
+            File.WriteAllText(Path.Join(dest, Path.GetFileNameWithoutExtension(fp) + ".osu"), osu);
+        });
 
         if (!o.NoCopy)
         {

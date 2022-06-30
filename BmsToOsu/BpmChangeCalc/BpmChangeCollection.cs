@@ -13,7 +13,7 @@ public class BpmChangeCollection
 
     public BpmChangeCollection(
         int trackNo, IEnumerable<Line> lines, IReadOnlyDictionary<string, double> bpmChangeIndex,
-        IReadOnlyDictionary<string, double> stopIndex)
+        IReadOnlyDictionary<string, double> stopIndex, string fp)
     {
         var logger = LogManager.GetLogger(GetType())!;
 
@@ -28,7 +28,7 @@ public class BpmChangeCollection
                         if (i <= 0)
                         {
                             logger.Error(
-                                $"* Measure scale is negative or 0. cannot continue parsing (Track: {trackNo})");
+                                $"{fp}: Measure scale is negative or 0. cannot continue parsing (Track: {trackNo})");
                             throw new InvalidDataException();
                         }
 
@@ -36,7 +36,7 @@ public class BpmChangeCollection
                     }
                     else
                     {
-                        logger.Error($"* Measure scale is invalid. cannot continue parsing (Track: {trackNo})");
+                        logger.Error($"{fp}: Measure scale is invalid. cannot continue parsing (Track: {trackNo})");
                         throw new InvalidDataException();
                     }
 
