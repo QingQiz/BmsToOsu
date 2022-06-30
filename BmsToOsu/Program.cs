@@ -17,7 +17,7 @@ var availableBmsExt = new[]
 Parser.Default.ParseArguments<Option>(args)
     .WithParsed(o =>
     {
-        var osz = o.OutPath.EndsWith(".osz", StringComparison.OrdinalIgnoreCase) ? o.OutPath : o.OutPath + ".osz";
+        var osz = o.OutPath + ".osz";
 
         // avoid removing existing folder
         if (Directory.Exists(o.OutPath) && !o.NoRemove)
