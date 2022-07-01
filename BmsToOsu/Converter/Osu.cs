@@ -51,11 +51,11 @@ public static class Osu
 
         if (File.Exists(Path.Join(dir, data.Metadata.StageFile)))
         {
-            bg = data.Metadata.Banner;
+            bg = data.Metadata.StageFile;
         }
         else if (File.Exists(Path.Join(dir, data.Metadata.Banner)))
         {
-            bg = data.Metadata.StageFile;
+            bg = data.Metadata.Banner;
         }
 
         if (string.IsNullOrEmpty(bg))
@@ -68,6 +68,7 @@ public static class Osu
 
         if (!string.IsNullOrEmpty(bg))
         {
+            fileToCp.Add(Path.GetFileName(bg));
             bd.AppendLine($"0,0,\"{bg}\",0,0");
         }
 
