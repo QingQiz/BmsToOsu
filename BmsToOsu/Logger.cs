@@ -48,22 +48,11 @@ public static class Logger
 
         coloredConsoleAppender.Layout = patternLayout;
 
-        var rollingFileAppender = new RollingFileAppender
-        {
-            File         = "Log.log",
-            AppendToFile = true,
-            RollingStyle = RollingFileAppender.RollingMode.Date,
-            DatePattern  = "yyyyMMdd",
-            Layout       = patternLayout
-        };
-
         System.Text.Encoding.RegisterProvider(System.Text.CodePagesEncodingProvider.Instance);
 
         coloredConsoleAppender.ActivateOptions();
-        rollingFileAppender.ActivateOptions();
 
         hierarchy.Root.AddAppender(coloredConsoleAppender);
-        hierarchy.Root.AddAppender(rollingFileAppender);
         hierarchy.Root.Level = Level.Info;
         hierarchy.Configured = true;
     }
