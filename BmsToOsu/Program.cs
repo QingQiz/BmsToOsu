@@ -82,8 +82,11 @@ result.WithParsed(o =>
 
         var dest = dir.Replace(o.InputPath, o.OutPath);
 
+        var osuName =
+            $"{data.Metadata.Title} - {data.Metadata.Artist} - BMS Converted - {Path.GetFileNameWithoutExtension(fp)}.osu";
+
         Directory.CreateDirectory(dest);
-        File.WriteAllText(Path.Join(dest, Path.GetFileNameWithoutExtension(fp) + ".osu"), osu);
+        File.WriteAllText(Path.Join(dest, osuName.MakeValidFileName()), osu);
     });
 
     if (!o.NoCopy)
