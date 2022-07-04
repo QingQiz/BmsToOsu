@@ -1,6 +1,7 @@
 ﻿using System.Text;
 using BmsToOsu.Entity;
 using BmsToOsu.Utils;
+using log4net;
 
 namespace BmsToOsu.Converter;
 
@@ -11,6 +12,7 @@ public static class Osu
     {
         var fileToCp = new HashSet<string>();
         var bd       = new StringBuilder();
+        var log      = LogManager.GetLogger(typeof(Osu));
 
         bd.AppendLine("osu file format v14\n");
 
@@ -165,11 +167,17 @@ public static class Osu
         foreach (var (lane, objects) in data.HitObject)
         {
             var xPos = (int)Math.Floor(laneSize * lane - laneSize / 2);
-            foreach (var obj in objects)
+
+            var lastStartTime = -1;
+            var lastEndTime   = -1;
+
+            foreach (var obj in objects.OrderBy(o => o.StartTime))
             {
                 var objType = 1 << 0;
 
-                if (obj.IsLongNote)
+                var ln = obj.IsLongNote && obj.EndTime != null;
+
+                if (ln)
                 {
                     objType = 1 << 7;
                 }
@@ -180,10 +188,28 @@ public static class Osu
 
                 var hitSound = noKeySound ? "" : obj.HitSoundFile;
 
-                bd.AppendLine(
-                    obj.IsLongNote
-                        ? $"{xPos},192,{(int)obj.StartTime},{objType},0,{(int)obj.EndTime}:0:0:0:0:{hitSound.Escape()}"
-                        : $"{xPos},192,{(int)obj.StartTime},{1 << 0},0,0:0:0:0:{hitSound.Escape()}");
+                var startTime = (int)obj.StartTime;
+
+                // double note at the same time
+                if (startTime == lastStartTime)
+                {
+                    log.Error($"{data.BmsPath}: Double note at the same time.");
+                    // throw new InvalidDataException();
+                }
+
+                // note in ln
+                if (startTime < lastEndTime)
+                {
+                    log.Error($"{data.BmsPath}: Note in Ln. abort.");
+                    // throw new InvalidDataException();
+                }
+
+                bd.AppendLine(ln
+                    ? $"{xPos},192,{startTime},{objType},0,{(int)obj.EndTime!}:0:0:0:0:{hitSound.Escape()}"
+                    : $"{xPos},192,{startTime},{1 << 0},0,0:0:0:0:{hitSound.Escape()}");
+
+                lastStartTime = startTime;
+                lastEndTime   = ln ? (int)obj.EndTime! : startTime;
             }
         }
 
