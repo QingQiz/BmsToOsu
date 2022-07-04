@@ -69,7 +69,7 @@ public static class Osu
         if (!string.IsNullOrEmpty(bg))
         {
             fileToCp.Add(Path.GetFileName(bg));
-            bd.AppendLine($"0,0,\"{bg}\",0,0");
+            bd.AppendLine($"0,0,\"{bg.Escape()}\",0,0");
         }
 
         // bga
@@ -103,12 +103,12 @@ public static class Osu
 
             if (vExt is not (".wmv" or ".mpg" or ".avi" or ".mp4" or ".webm" or ".mkv"))
             {
-                bd.AppendLine($"Sprite,{layer},CentreRight,\"{bga.File}\",600,240");
+                bd.AppendLine($"Sprite,{layer},CentreRight,\"{bga.File.Escape()}\",600,240");
                 bd.AppendLine($" F,0,{(int)bga.StartTime},{(int)endTime},1");
             }
             else
             {
-                bd.AppendLine($"Video,{(int)bga.StartTime},\"{bga.File}\"");
+                bd.AppendLine($"Video,{(int)bga.StartTime},\"{bga.File.Escape()}\"");
             }
 
             if (!string.IsNullOrEmpty(bga.File)) fileToCp.Add(bga.File);
@@ -117,7 +117,7 @@ public static class Osu
         // sound effect
         foreach (var sfx in data.SoundEffects)
         {
-            bd.AppendLine($"Sample,{(int)sfx.StartTime},0,\"{sfx.SoundFile}\",100");
+            bd.AppendLine($"Sample,{(int)sfx.StartTime},0,\"{sfx.SoundFile.Escape()}\",100");
 
             fileToCp.Add(sfx.SoundFile);
         }
@@ -126,7 +126,7 @@ public static class Osu
         {
             foreach (var hitObj in data.HitObject.Values.SelectMany(obj => obj))
             {
-                bd.AppendLine($"Sample,{(int)hitObj.StartTime},0,\"{hitObj.HitSoundFile}\",100");
+                bd.AppendLine($"Sample,{(int)hitObj.StartTime},0,\"{hitObj.HitSoundFile.Escape()}\",100");
             }
         }
 
@@ -182,8 +182,8 @@ public static class Osu
 
                 bd.AppendLine(
                     obj.IsLongNote
-                        ? $"{xPos},192,{(int)obj.StartTime},{objType},0,{(int)obj.EndTime}:0:0:0:0:{hitSound}"
-                        : $"{xPos},192,{(int)obj.StartTime},{1 << 0},0,0:0:0:0:{hitSound}");
+                        ? $"{xPos},192,{(int)obj.StartTime},{objType},0,{(int)obj.EndTime}:0:0:0:0:{hitSound.Escape()}"
+                        : $"{xPos},192,{(int)obj.StartTime},{1 << 0},0,0:0:0:0:{hitSound.Escape()}");
             }
         }
 

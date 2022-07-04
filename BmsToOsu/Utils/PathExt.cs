@@ -31,4 +31,9 @@ public static class PathExt
                 .Where(kv => !string.IsNullOrEmpty(kv.Value))
         );
     }
+
+    public static string Escape(this string path)
+    {
+        return path.Replace(",", "-comma-");
+    }
 }
