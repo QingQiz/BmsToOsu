@@ -41,16 +41,16 @@ public class BmsFileData
         var bytes = File.ReadAllBytes(fp);
 
         // ignore UTF-8 BOM
-        if (bytes[0] == 0xEF && bytes[1] == 0xBB && bytes[2] == 0xBF)
-        {
-            bytes = bytes[3..];
-        }
+        // if (bytes[0] == 0xEF && bytes[1] == 0xBB && bytes[2] == 0xBF)
+        // {
+        //     bytes = bytes[3..];
+        // }
 
         // ignore UTF-16 BOM
-        if (bytes[0] == 0xFF && bytes[1] == 0xFE)
-        {
-            bytes = bytes[2..];
-        }
+        // if (bytes[0] == 0xFF && bytes[1] == 0xFE)
+        // {
+        //     bytes = bytes[2..];
+        // }
 
         // force Shift-JIS
         var       shiftJis = CodePagesEncodingProvider.Instance.GetEncoding("Shift-JIS")!;
