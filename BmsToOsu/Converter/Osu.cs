@@ -70,7 +70,8 @@ public static class Osu
 
         if (!string.IsNullOrEmpty(bg))
         {
-            fileToCp.Add(Path.GetFileName(bg));
+            bg = Path.GetFileName(bg);
+            fileToCp.Add(bg);
             bd.AppendLine($"0,0,\"{bg.Escape()}\",0,0");
         }
 
