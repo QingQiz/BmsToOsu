@@ -73,20 +73,25 @@ result.WithParsed(o =>
             return;
         }
 
-        var (osu, ftc2) = data.ToOsuBeatMap(dir);
-
-        lock (ftc)
+        foreach (var includePlate in new[] { true, false })
         {
-            foreach (var c in ftc2) ftc.Add(Path.Join(dir, c));
+            var (osu, ftc2) = data.ToOsuBeatMap(dir, includePlate);
+
+            lock (ftc)
+            {
+                foreach (var c in ftc2) ftc.Add(Path.Join(dir, c));
+            }
+
+            var dest = dir.Replace(o.InputPath, o.OutPath);
+
+            var plate = includePlate ? " (7+1K)" : "";
+
+            var osuName =
+                $"{data.Metadata.Title} - {data.Metadata.Artist} - BMS Converted{plate} - {Path.GetFileNameWithoutExtension(fp)}.osu";
+
+            Directory.CreateDirectory(dest);
+            File.WriteAllText(Path.Join(dest, osuName.MakeValidFileName()), osu);
         }
-
-        var dest = dir.Replace(o.InputPath, o.OutPath);
-
-        var osuName =
-            $"{data.Metadata.Title} - {data.Metadata.Artist} - BMS Converted - {Path.GetFileNameWithoutExtension(fp)}.osu";
-
-        Directory.CreateDirectory(dest);
-        File.WriteAllText(Path.Join(dest, osuName.MakeValidFileName()), osu);
     });
 
     if (!o.NoCopy)

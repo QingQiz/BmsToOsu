@@ -8,7 +8,7 @@ namespace BmsToOsu.Converter;
 public static class Osu
 {
     public static (string, HashSet<string> fileToCp) ToOsuBeatMap(
-        this BmsFileData data, string dir, bool noKeySound = false)
+        this BmsFileData data, string dir, bool includePlate = false)
     {
         var fileToCp = new HashSet<string>();
         var bd       = new StringBuilder();
@@ -35,13 +35,13 @@ public static class Osu
         bd.AppendLine($"Creator:{StringExt.AppendSubArtist(data.Metadata.Artist, data.Metadata.SubArtists)}");
         bd.AppendLine("Source:BMS");
         bd.AppendLine($"Tags:{data.Metadata.Tags} BMS Converted");
-        bd.AppendLine($"Version:Lv. {data.Metadata.Difficulty}" + (noKeySound ? " [No HitSound]" : ""));
+        bd.AppendLine($"Version:Lv. {data.Metadata.Difficulty}");
         bd.AppendLine("BeatmapID:0");
         bd.AppendLine("BeatmapSetID:0");
 
         bd.AppendLine("[Difficulty]");
         bd.AppendLine("HPDrainRate:8.5");
-        bd.AppendLine("CircleSize:7");
+        bd.AppendLine($"CircleSize:{(includePlate ? 8 : 7)}");
         bd.AppendLine("OverallDifficulty:8.0");
         bd.AppendLine("ApproachRate:0");
         bd.AppendLine("SliderMultiplier:1");
@@ -125,9 +125,10 @@ public static class Osu
             fileToCp.Add(sfx.SoundFile);
         }
 
-        if (noKeySound)
+        // hit sound -> sound effect
+        if (!includePlate)
         {
-            foreach (var hitObj in data.HitObject.Values.SelectMany(obj => obj))
+            foreach (var hitObj in data.HitObject[0])
             {
                 bd.AppendLine($"Sample,{(int)hitObj.StartTime},0,\"{hitObj.HitSoundFile.Escape()}\",100");
             }
@@ -163,11 +164,15 @@ public static class Osu
         // note/ln
         bd.AppendLine("[HitObjects]");
 
-        const double laneSize = 512.0 / 7;
+        var laneSize = 512.0 / (includePlate ? 8 : 7);
 
         foreach (var (lane, objects) in data.HitObject)
         {
-            var xPos = (int)Math.Floor(laneSize * lane - laneSize / 2);
+            if (!includePlate && lane == 0) continue;
+
+            var xPos = includePlate
+                ? (int)Math.Floor(laneSize * lane + laneSize / 2)
+                : (int)Math.Floor(laneSize * lane - laneSize / 2);
 
             var lastStartTime = -1;
             var lastEndTime   = -1;
@@ -187,8 +192,6 @@ public static class Osu
 
                 fileToCp.Add(obj.HitSoundFile);
 
-                var hitSound = noKeySound ? "" : obj.HitSoundFile;
-
                 var startTime = (int)obj.StartTime;
 
                 // double note at the same time
@@ -206,8 +209,8 @@ public static class Osu
                 }
 
                 bd.AppendLine(ln
-                    ? $"{xPos},192,{startTime},{objType},0,{(int)obj.EndTime!}:0:0:0:0:{hitSound.Escape()}"
-                    : $"{xPos},192,{startTime},{1 << 0},0,0:0:0:0:{hitSound.Escape()}");
+                    ? $"{xPos},192,{startTime},{objType},0,{(int)obj.EndTime!}:0:0:0:0:{obj.HitSoundFile.Escape()}"
+                    : $"{xPos},192,{startTime},{1 << 0},0,0:0:0:0:{obj.HitSoundFile.Escape()}");
 
                 lastStartTime = startTime;
                 lastEndTime   = ln ? (int)obj.EndTime! : startTime;

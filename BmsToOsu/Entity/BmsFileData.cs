@@ -15,6 +15,7 @@ public class BmsFileData
 
     public Dictionary<int, List<HitObject>> HitObject { get; } = new()
     {
+        {0, new List<HitObject>()},
         {1, new List<HitObject>()},
         {2, new List<HitObject>()},
         {3, new List<HitObject>()},
@@ -421,7 +422,7 @@ public class BmsFileData
                     var localOffset = bpmChangeCollection.GetDurationBeforePosition(initBpm, notePos, false);
 
                     // Sound Effect
-                    if (lane == 0 || line.Channel == "01")
+                    if (line.Channel == "01")
                     {
                         data.AddSoundEffect(startTrackAt + localOffset, target);
                         continue;
