@@ -9,9 +9,9 @@ public class BmsFileData
 {
     public string BmsPath = "";
     public BmsMetadata Metadata = null!;
-    public double StartingBpm = 130;
-    public string LnObject = "";
-    public Dictionary<int, List<Line>> TrackLines { get; } = new();
+    private double _startingBpm = 130;
+    private string _lnObject = "";
+    private Dictionary<int, List<Line>> TrackLines { get; } = new();
 
     public Dictionary<int, List<HitObject>> HitObject { get; } = new()
     {
@@ -29,8 +29,8 @@ public class BmsFileData
     public List<BgaFrame> BgaFrames { get; } = new();
 
     // map audio reference to effect sound file name
-    public Dictionary<string, string> AudioMap { get; set; } = new();
-    public IndexData Indices { get; } = new();
+    private Dictionary<string, string> _audioMap = new();
+    private readonly IndexData _indices = new();
     public List<SoundEffect> SoundEffects { get; } = new();
 
     private static readonly ILog Log = LogManager.GetLogger(typeof(BmsFileData));
@@ -176,7 +176,7 @@ public class BmsFileData
                         throw new InvalidDataException();
                     }
 
-                    bms.LnObject = lower[7..];
+                    bms._lnObject = lower[7..];
                 }
                 else if (lower.StartsWith("#artist"))
                 {
@@ -232,7 +232,7 @@ public class BmsFileData
 
                     if (double.TryParse(line[5..], out var bpm))
                     {
-                        bms.StartingBpm = bpm;
+                        bms._startingBpm = bpm;
                     }
                     else
                     {
@@ -250,7 +250,7 @@ public class BmsFileData
 
                     if (double.TryParse(line[7..], out var bpm))
                     {
-                        bms.Indices.BpmChanges[lower[4..6]] = bpm;
+                        bms._indices.BpmChanges[lower[4..6]] = bpm;
                     }
                     else
                     {
@@ -268,7 +268,7 @@ public class BmsFileData
 
                     var p = line[7..];
 
-                    bms.Indices.Bga[lower[4..6]] = p;
+                    bms._indices.Bga[lower[4..6]] = p;
                 }
                 else if (lower.StartsWith("#stop"))
                 {
@@ -286,7 +286,7 @@ public class BmsFileData
                             continue;
                         }
 
-                        bms.Indices.Stops[lower[5..7]] = stop;
+                        bms._indices.Stops[lower[5..7]] = stop;
                     }
                     else
                     {
@@ -302,7 +302,7 @@ public class BmsFileData
                         continue;
                     }
 
-                    bms.AudioMap[lower[4..6]] = line[7..];
+                    bms._audioMap[lower[4..6]] = line[7..];
                 }
 
                 continue;
@@ -334,7 +334,7 @@ public class BmsFileData
         }
 
         bms.Metadata = metadata;
-        bms.AudioMap = bms.AudioMap.FixSoundPath(Path.GetDirectoryName(fp)!);
+        bms._audioMap = bms._audioMap.FixSoundPath(Path.GetDirectoryName(fp)!);
         return bms;
     }
 
@@ -344,9 +344,9 @@ public class BmsFileData
 
     private void AddSoundEffect(double time, string target)
     {
-        if (AudioMap.ContainsKey(target))
+        if (_audioMap.ContainsKey(target))
         {
-            SoundEffects.Add(new SoundEffect(time, AudioMap[target]));
+            SoundEffects.Add(new SoundEffect(time, _audioMap[target]));
         }
     }
 
@@ -387,7 +387,7 @@ public class BmsFileData
     {
         var data = CompileBmsToObj(fp);
 
-        var initBpm = data.StartingBpm;
+        var initBpm = data._startingBpm;
         data.TimingPoints[0] = initBpm;
 
         var startTrackAt = 0.0;
@@ -400,7 +400,7 @@ public class BmsFileData
             if (!data.TrackLines.ContainsKey(track)) data.TrackLines[track] = new List<Line>();
 
             var bpmChangeCollection =
-                new BpmChangeCollection(track, data.TrackLines[track], data.Indices.BpmChanges, data.Indices.Stops, fp);
+                new BpmChangeCollection(track, data.TrackLines[track], data._indices.BpmChanges, data._indices.Stops, fp);
 
             foreach (var line in data.TrackLines[track].Where(l => l.Message.Length % 2 == 0))
             {
@@ -432,7 +432,7 @@ public class BmsFileData
                     if (lane != -1)
                     {
                         // ln: type 1
-                        if (target == data.LnObject)
+                        if (target == data._lnObject)
                         {
                             var hitObj = data.HitObject[lane].Last();
                             hitObj.EndTime    = startTrackAt + localOffset;
@@ -453,7 +453,7 @@ public class BmsFileData
                                     StartTime    = startTrackAt + localOffset,
                                     IsLongNote   = true,
                                     EndTime      = null,
-                                    HitSoundFile = data.AudioMap.ContainsKey(target) ? data.AudioMap[target] : ""
+                                    HitSoundFile = data._audioMap.ContainsKey(target) ? data._audioMap[target] : ""
                                 };
 
                                 data.AddHitObject(lane, hitObj);
@@ -464,10 +464,10 @@ public class BmsFileData
                                 // update ln end time
                                 hitObj.EndTime = startTrackAt + localOffset;
 
-                                if (data.AudioMap.ContainsKey(target))
+                                if (data._audioMap.ContainsKey(target))
                                 {
                                     // ln end has different hit sound
-                                    if (data.AudioMap[target] != hitObj.HitSoundFile)
+                                    if (data._audioMap[target] != hitObj.HitSoundFile)
                                     {
                                         data.AddSoundEffect((double)hitObj.EndTime, target);
                                     }
@@ -484,9 +484,9 @@ public class BmsFileData
                                 IsLongNote = false
                             };
 
-                            if (data.AudioMap.ContainsKey(target))
+                            if (data._audioMap.ContainsKey(target))
                             {
-                                hitObj.HitSoundFile = data.AudioMap[target];
+                                hitObj.HitSoundFile = data._audioMap[target];
                             }
 
                             data.AddHitObject(lane, hitObj);
@@ -498,7 +498,7 @@ public class BmsFileData
                     // bga
                     if (line.Channel is "04" or "07")
                     {
-                        if (!data.Indices.Bga.ContainsKey(target))
+                        if (!data._indices.Bga.ContainsKey(target))
                         {
                             // suppress warnings
                             if (!bgaFrameWarn.Contains(target))
@@ -510,7 +510,7 @@ public class BmsFileData
                             continue;
                         }
 
-                        var t = data.Indices.Bga[target];
+                        var t = data._indices.Bga[target];
                         var l = 0;
 
                         if (line.Channel == "07") l = 1;
