@@ -11,18 +11,20 @@ public class BmsFileData
     public BmsMetadata Metadata = null!;
     private double _startingBpm = 130;
     private string _lnObject = "";
-    private Dictionary<int, List<Line>> TrackLines { get; } = new();
+    private Dictionary<int, List<Signal>> TrackSignals { get; } = new();
+
+    private List<(double StartTime, string SoundFile)>? _songFileList;
 
     public Dictionary<int, List<HitObject>> HitObject { get; } = new()
     {
-        {0, new List<HitObject>()},
-        {1, new List<HitObject>()},
-        {2, new List<HitObject>()},
-        {3, new List<HitObject>()},
-        {4, new List<HitObject>()},
-        {5, new List<HitObject>()},
-        {6, new List<HitObject>()},
-        {7, new List<HitObject>()},
+        { 0, new List<HitObject>() },
+        { 1, new List<HitObject>() },
+        { 2, new List<HitObject>() },
+        { 3, new List<HitObject>() },
+        { 4, new List<HitObject>() },
+        { 5, new List<HitObject>() },
+        { 6, new List<HitObject>() },
+        { 7, new List<HitObject>() },
     };
 
     public Dictionary<double, double> TimingPoints { get; } = new();
@@ -41,19 +43,6 @@ public class BmsFileData
     {
         var bytes = File.ReadAllBytes(fp);
 
-        // ignore UTF-8 BOM
-        // if (bytes[0] == 0xEF && bytes[1] == 0xBB && bytes[2] == 0xBF)
-        // {
-        //     bytes = bytes[3..];
-        // }
-
-        // ignore UTF-16 BOM
-        // if (bytes[0] == 0xFF && bytes[1] == 0xFE)
-        // {
-        //     bytes = bytes[2..];
-        // }
-
-        // force Shift-JIS
         var       shiftJis = CodePagesEncodingProvider.Instance.GetEncoding("Shift-JIS")!;
         using var reader   = new StreamReader(new MemoryStream(bytes), shiftJis);
         var       lines    = reader.ReadToEnd().Split(new[] { "\r\n", "\r", "\n" }, StringSplitOptions.None);
@@ -69,23 +58,21 @@ public class BmsFileData
         {
             if (!line.StartsWith('#')) continue;
 
-            var lower = line.ToLower();
-
-            if (lower.StartsWith("#end") && ignoreLine)
+            if (line.WithCommand("#end", out _) && ignoreLine)
             {
                 ignoreLine = false;
                 continue;
             }
 
-            if (lower.StartsWith("#if") && !ignoreLine)
+            if (line.WithCommand("#if", out var @if) && !ignoreLine)
             {
-                if (line.Length < 5)
+                if (string.IsNullOrEmpty(@if))
                 {
                     ignoreLine = true;
                     continue;
                 }
 
-                if (line[4] != '1')
+                if (@if[0] != '1')
                 {
                     ignoreLine = true;
                 }
@@ -95,245 +82,245 @@ public class BmsFileData
 
             if (ignoreLine) continue;
 
-            if (line.Length < 7 || line[6] != ':')
+            if (line.WithCommand("#Player", out var player))
             {
-                if (lower.StartsWith("#player"))
+                if (player.IsEmpty())
                 {
-                    if (line.Length < 9)
-                    {
-                        Log.Error($"{fp}: Player type cannot be determined. (Line: {i})");
+                    Log.Error($"{fp}: Player type cannot be determined. (Line: {i})");
+                    throw new InvalidDataException();
+                }
+
+                switch (player[0])
+                {
+                    case '1':
+                        break;
+                    case '2':
+                        Log.Error($"{fp}: Map specified #PLAYER 2; skipping");
                         throw new InvalidDataException();
-                    }
-
-                    switch (line[8])
-                    {
-                        case '1':
-                            break;
-                        case '2':
-                            Log.Error($"{fp}: Map specified #PLAYER 2; skipping");
-                            throw new InvalidDataException();
-                        case '3':
-                            Log.Error($"{fp}: Double play mode; skipping");
-                            throw new InvalidDataException();
-                        default:
-                            Log.Error(
-                                $"{fp}: Even though player header was defined, there was no valid input (Line: {i})");
-                            throw new InvalidDataException();
-                    }
-                }
-                else if (lower.StartsWith("#genre"))
-                {
-                    if (line.Length < 8)
-                    {
-                        Log.Warn($"{fp}: #genre is invalid, ignoring (Line: {i})");
-                        metadata.Tags = "BMS";
-                        continue;
-                    }
-
-                    metadata.Tags = line[7..];
-                }
-                else if (lower.StartsWith("#subtittle"))
-                {
-                    if (line.Length < 11)
-                    {
-                        Log.Warn($"{fp}: #subtitle is invalid, ignoring (Line: {i})");
-                        continue;
-                    }
-
-                    metadata.Subtitle = line[10..];
-                }
-                else if (lower.StartsWith("#subartist"))
-                {
-                    if (line.Length < 12)
-                    {
-                        Log.Warn($"{fp}: #subartist is invalid, ignoring (Line: {i})");
-                        continue;
-                    }
-
-                    metadata.SubArtists.Add(line[11..]);
-                }
-                else if (lower.StartsWith("#title"))
-                {
-                    if (line.Length < 8)
-                    {
-                        Log.Warn($"{fp}: #title is invalid, ignoring (Line: {i})");
-                        continue;
-                    }
-
-                    metadata.Title = line[7..];
-                }
-                else if (lower.StartsWith("#lnobj"))
-                {
-                    if (line.Length < 8)
-                    {
-                        Log.Error($"{fp}: #lnobj is not a valid length (Line: {i})");
+                    case '3':
+                        Log.Error($"{fp}: Double play mode; skipping");
                         throw new InvalidDataException();
-                    }
-
-                    if (line[7..].Length != 2)
-                    {
-                        Log.Error($"{fp}: #lnobj was specified, but not 2 bytes in length. (Line: {i})");
+                    default:
+                        Log.Error(
+                            $"{fp}: Even though player header was defined, there was no valid input (Line: {i})");
                         throw new InvalidDataException();
-                    }
-
-                    bms._lnObject = lower[7..];
                 }
-                else if (lower.StartsWith("#artist"))
-                {
-                    if (line.Length < 9)
-                    {
-                        Log.Warn($"{fp}: #artist is invalid, ignoring (Line: {i})");
-                        continue;
-                    }
-
-                    metadata.Artist = line[8..];
-                }
-                else if (lower.StartsWith("#playlevel"))
-                {
-                    if (line.Length < 12)
-                    {
-                        Log.Warn($"{fp}: #playlevel is invalid, ignoring (Line: {i})");
-                        continue;
-                    }
-
-                    metadata.Difficulty = line[11..];
-                }
-                else if (lower.StartsWith("#stagefile"))
-                {
-                    if (line.Length < 12)
-                    {
-                        Log.Warn($"{fp}: #stagefile is invalid, ignoring (Line: {i})");
-                        continue;
-                    }
-
-                    var p = line[11..];
-
-                    metadata.StageFile = p;
-                }
-                else if (lower.StartsWith("#banner"))
-                {
-                    if (line.Length < 9)
-                    {
-                        Log.Warn($"{fp}: #banner is invalid, ignoring (Line: {i})");
-                        continue;
-                    }
-
-                    var p = line[8..];
-
-                    metadata.Banner = p;
-                }
-                else if (lower.StartsWith("#bpm "))
-                {
-                    if (line.Length < 6)
-                    {
-                        Log.Error($"{fp}: #bpm is invalid, aborting (Line: {i})");
-                        throw new InvalidDataException();
-                    }
-
-                    if (double.TryParse(line[5..], out var bpm))
-                    {
-                        bms._startingBpm = bpm;
-                    }
-                    else
-                    {
-                        Log.Error($"{fp}: #bpm {line[5..]} is invalid, aborting (Line: {i})");
-                        throw new InvalidDataException();
-                    }
-                }
-                else if (lower.StartsWith("#bpm"))
-                {
-                    if (line.Length < 8)
-                    {
-                        Log.Error($"{fp}: BPM change is invalid, aborting (Line: {i})");
-                        throw new InvalidDataException();
-                    }
-
-                    if (double.TryParse(line[7..], out var bpm))
-                    {
-                        bms._indices.BpmChanges[lower[4..6]] = bpm;
-                    }
-                    else
-                    {
-                        Log.Error($"{fp}: BPM change {line[5..]} is invalid, aborting (Line: {i})");
-                        throw new InvalidDataException();
-                    }
-                }
-                else if (lower.StartsWith("#bmp"))
-                {
-                    if (line.Length < 8)
-                    {
-                        Log.Warn($"{fp}: BMP is invalid, ignoring (Line: {i})");
-                        continue;
-                    }
-
-                    var p = line[7..];
-
-                    bms._indices.Bga[lower[4..6]] = p;
-                }
-                else if (lower.StartsWith("#stop"))
-                {
-                    if (line.Length < 9)
-                    {
-                        Log.Warn($"{fp}: STOP isn't correctly formatted, not going to use it (Line: {i})");
-                        continue;
-                    }
-
-                    if (double.TryParse(line[8..], out var stop))
-                    {
-                        if (i < 0)
-                        {
-                            Log.Warn($"{fp}: STOP is negative ({stop}), not going to use it (Line: {i})");
-                            continue;
-                        }
-
-                        bms._indices.Stops[lower[5..7]] = stop;
-                    }
-                    else
-                    {
-                        Log.Warn($"{fp}: STOP is not a valid number, not going to use it (Line: {i})");
-                    }
-                }
-                else if (lower.StartsWith("#wav"))
-                {
-                    if (line.Length < 8)
-                    {
-                        Log.Warn(
-                            $"{fp}: WAV command invalid, all notes/sfx associated with it won't be placed (Line: {i})");
-                        continue;
-                    }
-
-                    bms._audioMap[lower[4..6]] = line[7..];
-                }
-
-                continue;
             }
-
-            if (int.TryParse(line[1..4], out var tInt))
+            else if (line.WithCommand("#Title", out var title))
             {
-                var channel = lower[4..6];
-
-                var lineData = new Line
+                if (title.IsEmpty())
                 {
-                    Channel = channel
-                };
-
-                if (line.Length > 7)
-                {
-                    lineData.Message = lower[7..];
+                    Log.Warn($"{fp}: #Title is invalid, ignoring (Line: {i})");
+                    continue;
                 }
 
-                if (!bms.TrackLines.ContainsKey(tInt)) bms.TrackLines[tInt] = new List<Line>();
-
-                bms.TrackLines[tInt].Add(lineData);
+                metadata.Title = title;
             }
-            else
+            else if (line.WithCommand("#SubTitle", out var subTitle))
             {
-                Log.Error($"{fp}: Failed to parse track #, cannot continue parsing (Line: {{i}}, Content: {line})");
-                throw new InvalidDataException();
+                if (subTitle.IsEmpty())
+                {
+                    Log.Warn($"{fp}: #SubTitle is invalid, ignoring (Line: {i})");
+                    continue;
+                }
+
+                metadata.Subtitle = subTitle;
+            }
+            else if (line.WithCommand("#Artist", out var artist))
+            {
+                if (artist.IsEmpty())
+                {
+                    Log.Warn($"{fp}: #Artist is invalid, ignoring (Line: {i})");
+                    continue;
+                }
+
+                metadata.Artist = artist;
+            }
+            else if (line.WithCommand("#SubArtist", out var subArtist))
+            {
+                if (subArtist.IsEmpty())
+                {
+                    Log.Warn($"{fp}: #SubArtist is invalid, ignoring (Line: {i})");
+                    continue;
+                }
+
+                metadata.SubArtists.Add(subArtist);
+            }
+            else if (line.WithCommand("#Genre", out var genre))
+            {
+                if (genre.IsEmpty())
+                {
+                    Log.Warn($"{fp}: #genre is invalid, ignoring (Line: {i})");
+                    metadata.Tags = "BMS";
+                    continue;
+                }
+
+                metadata.Tags = genre;
+            }
+            else if (line.WithCommand("#LnObj", out var lnObj))
+            {
+                if (lnObj.IsEmpty())
+                {
+                    Log.Error($"{fp}: #LnObj is not a valid length (Line: {i})");
+                    throw new InvalidDataException();
+                }
+
+                if (lnObj.Length != 2)
+                {
+                    Log.Error($"{fp}: #LnObj was specified, but not 2 bytes in length. (Line: {i})");
+                    throw new InvalidDataException();
+                }
+
+                bms._lnObject = lnObj.ToLower();
+            }
+            else if (line.WithCommand("#PlayLevel", out var playLevel))
+            {
+                if (playLevel.IsEmpty())
+                {
+                    Log.Warn($"{fp}: #PlayLevel is invalid, ignoring (Line: {i})");
+                    continue;
+                }
+
+                metadata.Difficulty = playLevel;
+            }
+            else if (line.WithCommand("#StageFile", out var stageFile))
+            {
+                if (stageFile.IsEmpty())
+                {
+                    Log.Warn($"{fp}: #StageFile is invalid, ignoring (Line: {i})");
+                    continue;
+                }
+
+                metadata.StageFile = stageFile;
+            }
+            else if (line.WithCommand("#banner", out var banner))
+            {
+                if (banner.IsEmpty())
+                {
+                    Log.Warn($"{fp}: #banner is invalid, ignoring (Line: {i})");
+                    continue;
+                }
+
+                metadata.Banner = banner;
+            }
+            else if (line.WithCommand("#bpm ", out var bpmDef))
+            {
+                if (bpmDef.IsEmpty())
+                {
+                    Log.Error($"{fp}: #bpm is invalid, aborting (Line: {i})");
+                    throw new InvalidDataException();
+                }
+
+                if (double.TryParse(bpmDef, out var bpm))
+                {
+                    bms._startingBpm = bpm;
+                }
+                else
+                {
+                    Log.Error($"{fp}: #bpm {bpmDef} is invalid, aborting (Line: {i})");
+                    throw new InvalidDataException();
+                }
+            }
+            else if (line.WithCommand("#bpm", out var bpmChange))
+            {
+                var bpmChangeSplit = bpmChange.Split(' ').Where(c => !c.IsEmpty()).ToArray();
+
+                if (bpmChangeSplit.Length != 2)
+                {
+                    Log.Error($"{fp}: BPM change {bpmChange} is invalid, aborting (Line: {i})");
+                    throw new InvalidDataException();
+                }
+
+                if (double.TryParse(bpmChangeSplit[1], out var bpm))
+                {
+                    bms._indices.BpmChanges[bpmChangeSplit[0]] = bpm;
+                }
+                else
+                {
+                    Log.Error($"{fp}: BPM change {bpmChange} is invalid, aborting (Line: {i})");
+                    throw new InvalidDataException();
+                }
+            }
+            else if (line.WithCommand("#bmp", out var bmp))
+            {
+                var bmpSplit = bmp.Split(' ').Where(c => !c.IsEmpty()).ToArray();
+
+                if (bmpSplit.Length != 2)
+                {
+                    Log.Warn($"{fp}: BMP is invalid, ignoring (Line: {i})");
+                    continue;
+                }
+
+                bms._indices.Bga[bmpSplit[0]] = bmpSplit[1];
+            }
+            else if (line.WithCommand("#stop", out var stopDef))
+            {
+                var stopDefSplit = stopDef.Split(' ').Where(c => !c.IsEmpty()).ToArray();
+
+                if (stopDefSplit.Length != 2)
+                {
+                    Log.Warn($"{fp}: STOP isn't correctly formatted, not going to use it (Line: {i})");
+                    continue;
+                }
+
+                if (double.TryParse(stopDefSplit[1], out var stop))
+                {
+                    if (i < 0)
+                    {
+                        Log.Warn($"{fp}: STOP is negative ({stop}), not going to use it (Line: {i})");
+                        continue;
+                    }
+
+                    bms._indices.Stops[stopDefSplit[0]] = stop;
+                }
+                else
+                {
+                    Log.Warn($"{fp}: STOP is not a valid number, not going to use it (Line: {i})");
+                }
+            }
+            else if (line.WithCommand("#wav", out var wav))
+            {
+                var wavSplit = wav.Split(' ').Where(c => !c.IsEmpty()).ToArray();
+
+                if (wavSplit.Length != 2)
+                {
+                    Log.Warn(
+                        $"{fp}: WAV command invalid, all notes/sfx associated with it won't be placed (Line: {i})");
+                    continue;
+                }
+
+                bms._audioMap[wavSplit[0].ToLower()] = wavSplit[1];
+            }
+            else if (line.WithCommand("#", out var signalDef))
+            {
+                var signalDefSplit = signalDef.Split(':').Where(c => !c.IsEmpty()).ToArray();
+
+                if (signalDefSplit.Length != 2) continue;
+                if (signalDefSplit[0].Length != 5) continue;
+
+                if (int.TryParse(signalDefSplit[0][..3], out var track))
+                {
+                    var channel = signalDefSplit[0][3..].ToLower();
+
+                    var signal = new Signal
+                    {
+                        Channel = channel,
+                        Message = signalDefSplit[1].ToLower()
+                    };
+
+                    if (!bms.TrackSignals.ContainsKey(track)) bms.TrackSignals[track] = new List<Signal>();
+
+                    bms.TrackSignals[track].Add(signal);
+                }
+                else
+                {
+                    Log.Error($"{fp}: Failed to parse track #, cannot continue parsing (Line: {{i}}, Content: {line})");
+                    throw new InvalidDataException();
+                }
             }
         }
 
-        bms.Metadata = metadata;
+        bms.Metadata  = metadata;
         bms._audioMap = bms._audioMap.FixSoundPath(Path.GetDirectoryName(fp)!);
         return bms;
     }
@@ -352,6 +339,11 @@ public class BmsFileData
 
     private void AddHitObject(int lane, HitObject hitObject)
     {
+        if (string.IsNullOrEmpty(hitObject.HitSoundFile))
+        {
+            Log.Error($"{BmsPath}: found empty hit sound");
+        }
+
         if (!hitObject.IsLongNote)
         {
             HitObject[lane].Add(hitObject);
@@ -375,7 +367,7 @@ public class BmsFileData
             }
             else
             {
-                // WARN double note at the same time
+                Log.Error($"{BmsPath}: double note at the same time");
                 HitObject[lane].Add(hitObject);
             }
         }
@@ -395,36 +387,37 @@ public class BmsFileData
         // suppress warnings
         var bgaFrameWarn = new HashSet<string>();
 
-        foreach (var track in Enumerable.Range(0, data.TrackLines.Keys.Max() + 1))
+        foreach (var track in Enumerable.Range(0, data.TrackSignals.Keys.Max() + 1))
         {
-            if (!data.TrackLines.ContainsKey(track)) data.TrackLines[track] = new List<Line>();
+            if (!data.TrackSignals.ContainsKey(track)) data.TrackSignals[track] = new List<Signal>();
 
-            var bpmChangeCollection =
-                new BpmChangeCollection(track, data.TrackLines[track], data._indices.BpmChanges, data._indices.Stops, fp);
+            var bpmChangeCollection = new BpmChangeCollection(
+                track, data.TrackSignals[track], data._indices.BpmChanges, data._indices.Stops, fp
+            );
 
-            foreach (var line in data.TrackLines[track].Where(l => l.Message.Length % 2 == 0))
+            foreach (var signal in data.TrackSignals[track].Where(l => l.Message.Length % 2 == 0))
             {
-                var lane = line.GetLaneNumber();
+                var lane = signal.GetLaneNumber();
 
                 // not (note OR bga OR sound effect)
-                if (!(lane != -1 || line.Channel is "01" or "04" or "07"))
+                if (!(lane != -1 || signal.Channel is "01" or "04" or "07"))
                 {
                     continue;
                 }
 
-                for (var i = 0; i < line.Message.Length; i += 2)
+                for (var i = 0; i < signal.Message.Length; i += 2)
                 {
-                    var notePos = Timing.GetPosition(i, line.Message.Length);
-                    var target  = line.Message[i..(i + 2)];
+                    var notePos = Timing.GetPosition(i, signal.Message.Length);
+                    var message = signal.Message[i..(i + 2)];
 
-                    if (target == "00") continue;
+                    if (message == "00") continue;
 
-                    var localOffset = bpmChangeCollection.GetDurationBeforePosition(initBpm, notePos, false);
+                    var offset = bpmChangeCollection.GetDurationBeforePosition(initBpm, notePos, false);
 
                     // Sound Effect
-                    if (line.Channel == "01")
+                    if (signal.Channel == "01")
                     {
-                        data.AddSoundEffect(startTrackAt + localOffset, target);
+                        data.AddSoundEffect(startTrackAt + offset, message);
                         continue;
                     }
 
@@ -432,16 +425,16 @@ public class BmsFileData
                     if (lane != -1)
                     {
                         // ln: type 1
-                        if (target == data._lnObject)
+                        if (message == data._lnObject)
                         {
                             var hitObj = data.HitObject[lane].Last();
-                            hitObj.EndTime    = startTrackAt + localOffset;
+                            hitObj.EndTime    = startTrackAt + offset;
                             hitObj.IsLongNote = true;
                             continue;
                         }
 
                         // ln: type 2
-                        if (line.Channel[0] == '5')
+                        if (signal.Channel[0] == '5')
                         {
                             var hitObj = data.HitObject[lane].LastOrDefault(o => o.IsLongNote && o.EndTime == null);
 
@@ -450,10 +443,10 @@ public class BmsFileData
                             {
                                 hitObj = new HitObject
                                 {
-                                    StartTime    = startTrackAt + localOffset,
+                                    StartTime    = startTrackAt + offset,
                                     IsLongNote   = true,
                                     EndTime      = null,
-                                    HitSoundFile = data._audioMap.ContainsKey(target) ? data._audioMap[target] : ""
+                                    HitSoundFile = data._audioMap.ContainsKey(message) ? data._audioMap[message] : ""
                                 };
 
                                 data.AddHitObject(lane, hitObj);
@@ -462,17 +455,18 @@ public class BmsFileData
                             else
                             {
                                 // update ln end time
-                                hitObj.EndTime = startTrackAt + localOffset;
+                                hitObj.EndTime = startTrackAt + offset;
 
-                                if (data._audioMap.ContainsKey(target))
+                                if (data._audioMap.ContainsKey(message))
                                 {
                                     // ln end has different hit sound
-                                    if (data._audioMap[target] != hitObj.HitSoundFile)
+                                    if (data._audioMap[message] != hitObj.HitSoundFile)
                                     {
-                                        data.AddSoundEffect((double)hitObj.EndTime, target);
+                                        data.AddSoundEffect((double)hitObj.EndTime, message);
                                     }
                                 }
                             }
+
                             continue;
                         }
 
@@ -480,13 +474,13 @@ public class BmsFileData
                         {
                             var hitObj = new HitObject
                             {
-                                StartTime  = startTrackAt + localOffset,
+                                StartTime  = startTrackAt + offset,
                                 IsLongNote = false
                             };
 
-                            if (data._audioMap.ContainsKey(target))
+                            if (data._audioMap.ContainsKey(message))
                             {
-                                hitObj.HitSoundFile = data._audioMap[target];
+                                hitObj.HitSoundFile = data._audioMap[message];
                             }
 
                             data.AddHitObject(lane, hitObj);
@@ -496,36 +490,34 @@ public class BmsFileData
                     }
 
                     // bga
-                    if (line.Channel is "04" or "07")
+                    if (signal.Channel is "04" or "07")
                     {
-                        if (!data._indices.Bga.ContainsKey(target))
+                        if (!data._indices.Bga.ContainsKey(message))
                         {
                             // suppress warnings
-                            if (!bgaFrameWarn.Contains(target))
+                            if (!bgaFrameWarn.Contains(message))
                             {
-                                Log.Warn($"{fp}: Bga frame {target} is not founded, ignoring...");
-                                bgaFrameWarn.Add(target);
+                                Log.Warn($"{fp}: Bga frame {message} is not founded, ignoring...");
+                                bgaFrameWarn.Add(message);
                             }
 
                             continue;
                         }
 
-                        var t = data._indices.Bga[target];
-                        var l = 0;
+                        var bgaFile = data._indices.Bga[message];
+                        var layer   = 0;
 
-                        if (line.Channel == "07") l = 1;
+                        if (signal.Channel == "07") layer = 1;
 
-                        if (t.Length > 0)
+                        if (bgaFile.Length > 0)
                         {
                             data.BgaFrames.Add(new BgaFrame
                             {
-                                StartTime = startTrackAt + localOffset,
-                                File      = t,
-                                Layer     = l
+                                StartTime = startTrackAt + offset,
+                                File      = bgaFile,
+                                Layer     = layer
                             });
                         }
-
-                        continue;
                     }
                 }
             }
@@ -549,5 +541,18 @@ public class BmsFileData
 
         data.BgaFrames.Sort((a, b) => a.StartTime.CompareTo(b.StartTime));
         return data;
+    }
+
+    public List<(double StartTime, string SoundFile)> GetSoundFileList()
+    {
+        if (_songFileList != null) return _songFileList;
+
+        _songFileList = new List<(double StartTime, string SoundFile)>();
+
+        _songFileList.AddRange(SoundEffects.Select(s => (s.StartTime, s.SoundFile)));
+        _songFileList.AddRange(HitObject.Values.SelectMany(x => x).Select(x => (x.StartTime, x.HitSoundFile)));
+        _songFileList = _songFileList.OrderBy(l => l.StartTime).ThenBy(l => l.SoundFile).ToList();
+
+        return _songFileList;
     }
 }

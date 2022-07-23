@@ -5,16 +5,7 @@ using log4net;
 
 namespace BmsToOsu.Converter;
 
-/// <summary>
-/// Example
-/// <code>
-/// var bmsFilePath = @"path/to/name.bms";
-/// var data = BmsFileData.FromFile(bmsFilePath);
-/// var outPath = @"path/to/output/name.mp3";
-/// SampleToMp3.ToMp3(data, outPath);
-/// </code>
-/// </summary>
-public static class SampleToMp3
+public class SampleToMp3
 {
     private class FilterComplex
     {
@@ -22,7 +13,7 @@ public static class SampleToMp3
         private readonly StringBuilder _delayBuilder = new();
         private readonly StringBuilder _mixBuilder = new();
 
-        private int _fileCount = 0;
+        private int _fileCount;
 
         private static string EscapeWindowsPath(string p)
         {
@@ -31,8 +22,10 @@ public static class SampleToMp3
 
         public void AddFile(string path, double delay)
         {
+            if (string.IsNullOrEmpty(path)) return;
+
             _inputBuilder.AppendLine($"amovie={EscapeWindowsPath(path)}[input_{_fileCount}];");
-            _delayBuilder.AppendLine($"[input_{_fileCount}]adelay={delay}|{delay}[delay_{_fileCount}];");
+            _delayBuilder.AppendLine($"[input_{_fileCount}]adelay={delay:F3}|{delay:F3}[delay_{_fileCount}];");
             _mixBuilder.Append($"[delay_{_fileCount}]");
             _fileCount++;
         }
@@ -43,9 +36,45 @@ public static class SampleToMp3
         }
     }
 
-    private static void Convert(List<(double StartTime, string SoundFile)> soundList, string ffmpeg, string workPath, string output)
+    private readonly string _ffmpeg;
+
+    public SampleToMp3(string ffmpeg = "")
+    {
+        if (string.IsNullOrEmpty(ffmpeg))
+        {
+            foreach (var path in (Environment.GetEnvironmentVariable("PATH") ?? "").Split(';'))
+            {
+                var p = Path.Join(path, "ffmpeg");
+
+                if (File.Exists(p))
+                {
+                    _ffmpeg = p;
+                    break;
+                }
+
+                if (File.Exists(p + ".exe"))
+                {
+                    _ffmpeg = p + ".exe";
+                    break;
+                }
+            }
+
+            if (string.IsNullOrEmpty(_ffmpeg))
+            {
+                throw new FileNotFoundException("Can not find ffmpeg in PATH, use `--ffmpeg` to specify the path of ffmpeg");
+            }
+        }
+        else
+        {
+            _ffmpeg = ffmpeg;
+        }
+    }
+
+    private void Generate(
+        List<(double StartTime, string SoundFile)> soundList, string workPath, string output)
     {
         var filter = new FilterComplex();
+
         foreach (var sound in soundList)
         {
             filter.AddFile(sound.SoundFile, sound.StartTime);
@@ -60,7 +89,7 @@ public static class SampleToMp3
         p.StartInfo.UseShellExecute  = false;
         p.StartInfo.CreateNoWindow   = false;
         p.StartInfo.WorkingDirectory = workPath;
-        p.StartInfo.FileName         = ffmpeg;
+        p.StartInfo.FileName         = _ffmpeg;
         p.StartInfo.Arguments =
             $"-y -hide_banner -loglevel error -filter_complex_script \"{argsFile}\" -map \"[mix]\" -b:a 256k \"{output}\"";
 
@@ -69,40 +98,19 @@ public static class SampleToMp3
 
         if (p.ExitCode != 0)
         {
-            throw new Exception("convert failed");
+            throw new Exception("generation failed");
         }
 
         File.Delete(argsFile);
     }
 
-    public static void ToMp3(BmsFileData data, string output)
+    public void GenerateMp3(BmsFileData data, string output)
     {
         var log = LogManager.GetLogger(typeof(SampleToMp3));
 
-        var ffmpeg = "";
+        var allSoundList = data.GetSoundFileList();
 
-        foreach (var path in (Environment.GetEnvironmentVariable("PATH") ?? "").Split(';'))
-        {
-            var p = Path.Join(path, "ffmpeg.exe");
-
-            if (!File.Exists(p)) continue;
-
-            ffmpeg = p;
-            break;
-        }
-
-        if (string.IsNullOrEmpty(ffmpeg))
-        {
-            throw new FileNotFoundException("Can not find ffmpeg.exe in PATH");
-        }
-
-        var allSoundList = new List<(double StartTime, string SoundFile)>();
-
-        allSoundList.AddRange(data.SoundEffects.Select(s => (s.StartTime, s.SoundFile)));
-        allSoundList.AddRange(data.HitObject.Values.SelectMany(x => x).Select(x => (x.StartTime, x.HitSoundFile)));
-        allSoundList = allSoundList.OrderBy(l => l.StartTime).ToList();
-
-        var groupSize = allSoundList.Count / 10;
+        var groupSize = Math.Min(allSoundList.Count / 10, 1300);
 
         var groupedSoundList = new List<(List<(double StartTime, string SoundFile)> SoundList, string Output)>();
 
@@ -124,9 +132,9 @@ public static class SampleToMp3
             var endTime   = g.SoundList.Max(x => x.StartTime);
 
             log.Info(
-                $"{data.BmsPath}: Converting {TimeSpan.FromMilliseconds(startTime)}-{TimeSpan.FromMilliseconds(endTime)}...");
+                $"{data.BmsPath}: Generating {TimeSpan.FromMilliseconds(startTime)}-{TimeSpan.FromMilliseconds(endTime)}...");
 
-            Convert(g.SoundList, ffmpeg, workPath, g.Output);
+            Generate(g.SoundList, workPath, g.Output);
         });
 
         {
@@ -134,7 +142,7 @@ public static class SampleToMp3
 
             var soundList = groupedSoundList.Select(x => (0d, x.Output)).ToList();
 
-            Convert(soundList, ffmpeg, workPath, output);
+            Generate(soundList, workPath, output);
 
             soundList.ForEach(l => File.Delete(l.Output));
         }

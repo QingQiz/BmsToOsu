@@ -8,4 +8,21 @@ public static class StringExt
 
         return string.IsNullOrEmpty(sb) ? artist : $"{artist} <{sb}>";
     }
+
+    public static bool WithCommand(this string s, string command, out string param)
+    {
+        if (s.StartsWith(command, StringComparison.OrdinalIgnoreCase))
+        {
+            param = s[command.Length..].Trim();
+            return true;
+        }
+
+        param = "";
+        return false;
+    }
+
+    public static bool IsEmpty(this string s)
+    {
+        return s.Length == 0;
+    }
 }

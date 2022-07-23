@@ -12,18 +12,18 @@ public class BpmChangeCollection
     public readonly List<Stop> Stops = new();
 
     public BpmChangeCollection(
-        int trackNo, IEnumerable<Line> lines, IReadOnlyDictionary<string, double> bpmChangeIndex,
+        int trackNo, IEnumerable<Signal> signals, IReadOnlyDictionary<string, double> bpmChangeIndex,
         IReadOnlyDictionary<string, double> stopIndex, string fp)
     {
         var logger = LogManager.GetLogger(GetType())!;
 
-        foreach (var line in lines)
+        foreach (var signal in signals)
         {
-            switch (line.Channel)
+            switch (signal.Channel)
             {
                 case "02":
                 {
-                    if (double.TryParse(line.Message, out var i))
+                    if (double.TryParse(signal.Message, out var i))
                     {
                         if (i <= 0)
                         {
@@ -45,22 +45,22 @@ public class BpmChangeCollection
                 case "03":
                 case "08":
                 {
-                    if (line.Message.Length == 0)
+                    if (signal.Message.Length == 0)
                     {
                         continue;
                     }
 
-                    for (var i = 0; i < line.Message.Length; i += 2)
+                    for (var i = 0; i < signal.Message.Length; i += 2)
                     {
-                        if (i + 2 > line.Message.Length) continue;
+                        if (i + 2 > signal.Message.Length) continue;
 
-                        var val = line.Message[i..(i + 2)];
+                        var val = signal.Message[i..(i + 2)];
 
                         if (val == "00") continue;
 
                         double bpm;
 
-                        if (line.Channel == "03")
+                        if (signal.Channel == "03")
                         {
                             if (int.TryParse(val, NumberStyles.HexNumber, CultureInfo.InvariantCulture, out var bpmP))
                             {
@@ -81,7 +81,7 @@ public class BpmChangeCollection
 
                         BpmChanges.Add(new BpmChange
                         {
-                            Position   = Timing.GetPosition(i, line.Message.Length),
+                            Position   = Timing.GetPosition(i, signal.Message.Length),
                             Bpm        = bpm,
                             IsNegative = bpm < 0
                         });
@@ -91,20 +91,20 @@ public class BpmChangeCollection
                 }
                 case "09":
                 {
-                    if (line.Message.Length == 0)
+                    if (signal.Message.Length == 0)
                     {
                         continue;
                     }
 
-                    for (var i = 0; i < line.Message.Length; i += 2)
+                    for (var i = 0; i < signal.Message.Length; i += 2)
                     {
-                        var val = line.Message[i..(i + 2)];
+                        var val = signal.Message[i..(i + 2)];
 
                         if (stopIndex.ContainsKey(val))
                         {
                             Stops.Add(new Stop
                             {
-                                Position = Timing.GetPosition(i, line.Message.Length),
+                                Position = Timing.GetPosition(i, signal.Message.Length),
                                 Duration = stopIndex[val]
                             });
                         }

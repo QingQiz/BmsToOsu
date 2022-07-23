@@ -1,9 +1,9 @@
 ﻿namespace BmsToOsu.Entity;
 
-public class Line
+public class Signal
 {
     public string Channel = "";
-    public string Message { get; set; } = "";
+    public string Message { get; init; } = "";
 
     public int GetLaneNumber()
     {

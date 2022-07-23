@@ -6,6 +6,8 @@ using BmsToOsu.Utils;
 using CommandLine;
 using CommandLine.Text;
 using log4net;
+using SearchOption = System.IO.SearchOption;
+
 
 Logger.Config();
 
@@ -36,6 +38,12 @@ result.WithParsed(o =>
         o.NoRemove = true;
     }
 
+    if (o.NoCopy && o.GenerateMp3)
+    {
+        logger.Error($"`--no-copy` is conflict with `--generate-mp3`");
+        return;
+    }
+
     // avoid removing after generation
     if (o.NoZip && !o.NoRemove)
     {
@@ -50,47 +58,29 @@ result.WithParsed(o =>
         return;
     }
 
+    var converter = new Converter(o.Ffmpeg);
+
     var ftc = new HashSet<string>();
 
     var bms = Directory
         .GetFiles(o.InputPath, "*.*", SearchOption.AllDirectories)
         .Where(f => availableBmsExt.Any(ext => f.EndsWith(ext, StringComparison.OrdinalIgnoreCase)));
 
-    Parallel.ForEach(bms, fp =>
+    void Proc(string path)
     {
-        logger.Info($"Processing {fp}");
+        logger.Info($"Processing {path}");
+        converter.Convert(path, o, ftc);
+    }
 
-        var dir = Path.GetDirectoryName(fp) ?? "";
-
-        BmsFileData data;
-
-        try
+    Parallel.ForEach(bms.GroupBy(Path.GetDirectoryName), groupedBms =>
+    {
+        if (o.GenerateMp3)
         {
-            data = BmsFileData.FromFile(fp);
+            foreach (var fp in groupedBms) Proc(fp);
         }
-        catch (InvalidDataException)
+        else
         {
-            return;
-        }
-
-        foreach (var includePlate in new[] { true, false })
-        {
-            var (osu, ftc2) = data.ToOsuBeatMap(dir, includePlate);
-
-            lock (ftc)
-            {
-                foreach (var c in ftc2) ftc.Add(Path.Join(dir, c));
-            }
-
-            var dest = dir.Replace(o.InputPath, o.OutPath);
-
-            var plate = includePlate ? " (7+1K)" : "";
-
-            var osuName =
-                $"{data.Metadata.Title} - {data.Metadata.Artist} - BMS Converted{plate} - {Path.GetFileNameWithoutExtension(fp)}.osu";
-
-            Directory.CreateDirectory(dest);
-            File.WriteAllText(Path.Join(dest, osuName.MakeValidFileName()), osu);
+            Parallel.ForEach(groupedBms, Proc);
         }
     });
 
@@ -119,10 +109,15 @@ result.WithParsed(o =>
     {
         logger.Info($"Removing {o.OutPath}");
         Directory.Delete(o.OutPath, true);
+
+        if (o.OutPath.EndsWith(".osz", StringComparison.OrdinalIgnoreCase))
+        {
+            File.Move(osz, o.OutPath);
+        }
     }
 });
 
-result.WithNotParsed(errs =>
+result.WithNotParsed(_ =>
 {
     var helpText = HelpText.AutoBuild(result, h =>
     {
@@ -132,3 +127,85 @@ result.WithNotParsed(errs =>
     }, e => e);
     Console.WriteLine(helpText);
 });
+
+
+internal class Converter
+{
+    public Converter(string ffmpeg)
+    {
+        _mp3Generator = new SampleToMp3(ffmpeg);
+        _log          = LogManager.GetLogger(nameof(Converter));
+    }
+
+    private readonly SampleToMp3 _mp3Generator;
+    private readonly ILog _log;
+
+    private string GenerateMp3(BmsFileData data, string outDir)
+    {
+        var soundFileList = string.Join('\n', data.GetSoundFileList().Select(x => $"{x.SoundFile}:{x.StartTime:F3}"));
+
+        var otherSoundFileList = Directory.GetFiles(outDir, "*.sound_list");
+        foreach (var f in otherSoundFileList)
+        {
+            if (File.ReadAllText(f).Equals(soundFileList, StringComparison.OrdinalIgnoreCase))
+            {
+                _log.Warn($"{data.BmsPath}: found duplicate generation task, skipping...");
+                return Path.GetFileNameWithoutExtension(f);
+            }
+        }
+
+        var count    = otherSoundFileList.Length;
+        var filename = $"{data.Metadata.Title} - {data.Metadata.Artist}{(count == 0 ? "" : $" ({count})")}.mp3".MakeValidFileName();
+        var filePath = Path.Join(outDir, filename);
+
+        if (File.Exists(filePath))
+        {
+            _log.Warn($"{data.BmsPath}: {filename} exists, skipping...");
+            return filename;
+        }
+
+        _mp3Generator.GenerateMp3(data, filePath);
+
+        File.WriteAllText(filePath + ".sound_list", soundFileList);
+
+        return filename;
+    }
+
+    public void Convert(string bmsFilePath, Option option, HashSet<string> filesToCopy)
+    {
+        var bmsDir    = Path.GetDirectoryName(bmsFilePath) ?? "";
+        var outputDir = bmsDir.Replace(option.InputPath, option.OutPath);
+
+        Directory.CreateDirectory(outputDir);
+
+        BmsFileData data;
+
+        try
+        {
+            data = BmsFileData.FromFile(bmsFilePath);
+        }
+        catch (InvalidDataException)
+        {
+            return;
+        }
+
+        foreach (var includePlate in new[] { true, false })
+        {
+            var mp3Path = option.GenerateMp3 ? GenerateMp3(data, outputDir) : "";
+
+            var (osu, ftc2) = data.ToOsuBeatMap(bmsDir, mp3Path, includePlate);
+
+            lock (filesToCopy)
+            {
+                foreach (var c in ftc2) filesToCopy.Add(Path.Join(bmsDir, c));
+            }
+
+            var plate = includePlate ? " (7+1K)" : "";
+
+            var osuName =
+                $"{data.Metadata.Title} - {data.Metadata.Artist} - BMS Converted{plate} - {Path.GetFileNameWithoutExtension(bmsFilePath)}.osu";
+
+            File.WriteAllText(Path.Join(outputDir, osuName.MakeValidFileName()), osu);
+        }
+    }
+}

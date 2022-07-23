@@ -7,8 +7,7 @@ namespace BmsToOsu.Converter;
 
 public static class Osu
 {
-    public static (string, HashSet<string> fileToCp) ToOsuBeatMap(
-        this BmsFileData data, string dir, bool includePlate = false)
+    public static (string, HashSet<string> fileToCp) ToOsuBeatMap(this BmsFileData data, string dir, string mp3 = "", bool includePlate = false)
     {
         var fileToCp = new HashSet<string>();
         var bd       = new StringBuilder();
@@ -20,6 +19,11 @@ public static class Osu
         bd.AppendLine("Mode: 3");
         bd.AppendLine("SampleSet: Soft");
         bd.AppendLine("Countdown: 0");
+
+        if (!string.IsNullOrEmpty(mp3))
+        {
+            bd.AppendLine($"AudioFilename: {mp3}");
+        }
 
         bd.AppendLine("[Editor]");
         bd.AppendLine("DistanceSpacing: 1");
@@ -117,20 +121,27 @@ public static class Osu
             if (!string.IsNullOrEmpty(bga.File)) fileToCp.Add(bga.File);
         }
 
-        // sound effect
-        foreach (var sfx in data.SoundEffects)
+        if (string.IsNullOrEmpty(mp3))
         {
-            bd.AppendLine($"Sample,{(int)sfx.StartTime},0,\"{sfx.SoundFile.Escape()}\",100");
-
-            fileToCp.Add(sfx.SoundFile);
-        }
-
-        // hit sound -> sound effect
-        if (!includePlate)
-        {
-            foreach (var hitObj in data.HitObject[0])
+            // sound effect
+            foreach (var sfx in data.SoundEffects)
             {
-                bd.AppendLine($"Sample,{(int)hitObj.StartTime},0,\"{hitObj.HitSoundFile.Escape()}\",100");
+                if (string.IsNullOrEmpty(sfx.SoundFile)) continue;
+
+                bd.AppendLine($"Sample,{(int)sfx.StartTime},0,\"{sfx.SoundFile.Escape()}\",100");
+                fileToCp.Add(sfx.SoundFile);
+            }
+
+            // hit sound -> sound effect
+            if (!includePlate)
+            {
+                foreach (var hitObj in data.HitObject[0])
+                {
+                    if (string.IsNullOrEmpty(hitObj.HitSoundFile)) continue;
+
+                    bd.AppendLine($"Sample,{(int)hitObj.StartTime},0,\"{hitObj.HitSoundFile.Escape()}\",100");
+                    fileToCp.Add(hitObj.HitSoundFile);
+                }
             }
         }
 
@@ -188,9 +199,7 @@ public static class Osu
                     objType = 1 << 7;
                 }
 
-                if (!obj.HitSoundFile.Any()) continue;
-
-                fileToCp.Add(obj.HitSoundFile);
+                if (string.IsNullOrEmpty(obj.HitSoundFile)) continue;
 
                 var startTime = (int)obj.StartTime;
 
@@ -208,9 +217,16 @@ public static class Osu
                     // throw new InvalidDataException();
                 }
 
+                var hitSound = string.IsNullOrEmpty(mp3) ? obj.HitSoundFile.Escape() : "";
+
+                if (!string.IsNullOrEmpty(hitSound))
+                {
+                    fileToCp.Add(obj.HitSoundFile);
+                }
+
                 bd.AppendLine(ln
-                    ? $"{xPos},192,{startTime},{objType},0,{(int)obj.EndTime!}:0:0:0:0:{obj.HitSoundFile.Escape()}"
-                    : $"{xPos},192,{startTime},{1 << 0},0,0:0:0:0:{obj.HitSoundFile.Escape()}");
+                    ? $"{xPos},192,{startTime},{objType},0,{(int)obj.EndTime!}:0:0:0:0:{hitSound}"
+                    : $"{xPos},192,{startTime},{1 << 0},0,0:0:0:0:{hitSound}");
 
                 lastStartTime = startTime;
                 lastEndTime   = ln ? (int)obj.EndTime! : startTime;

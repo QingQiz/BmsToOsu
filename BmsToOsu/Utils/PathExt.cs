@@ -4,7 +4,7 @@ public static class PathExt
 {
     public static Dictionary<string, string> FixSoundPath(this Dictionary<string, string> audioMap, string path)
     {
-        var ext  = new[] { ".wav", ".mp3", ".ogg", ".3gp" };
+        var ext  = new[] { ".ogg", ".wav", ".mp3", ".3gp" };
         var dict = new Dictionary<string, string>();
 
         var files = audioMap.Values.ToHashSet();
