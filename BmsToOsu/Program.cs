@@ -86,7 +86,7 @@ result.WithParsed(o =>
 
     if (!o.NoCopy)
     {
-        logger.Info("Copying sound files");
+        logger.Info("Copying files");
         Parallel.ForEach(ftc, c =>
         {
             var dest = c.Replace(o.InputPath, o.OutPath);

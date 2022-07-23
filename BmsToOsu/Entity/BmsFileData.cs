@@ -233,7 +233,7 @@ public class BmsFileData
 
                 if (double.TryParse(bpmChangeSplit[1], out var bpm))
                 {
-                    bms._indices.BpmChanges[bpmChangeSplit[0]] = bpm;
+                    bms._indices.BpmChanges[bpmChangeSplit[0].ToLower()] = bpm;
                 }
                 else
                 {
@@ -243,15 +243,13 @@ public class BmsFileData
             }
             else if (line.WithCommand("#bmp", out var bmp))
             {
-                var bmpSplit = bmp.Split(' ').Where(c => !c.IsEmpty()).ToArray();
-
-                if (bmpSplit.Length != 2)
+                if (bmp.Length < 4)
                 {
                     Log.Warn($"{fp}: BMP is invalid, ignoring (Line: {i})");
                     continue;
                 }
 
-                bms._indices.Bga[bmpSplit[0]] = bmpSplit[1];
+                bms._indices.Bga[bmp[..2].ToLower()] = bmp[3..];
             }
             else if (line.WithCommand("#stop", out var stopDef))
             {
@@ -271,7 +269,7 @@ public class BmsFileData
                         continue;
                     }
 
-                    bms._indices.Stops[stopDefSplit[0]] = stop;
+                    bms._indices.Stops[stopDefSplit[0].ToLower()] = stop;
                 }
                 else
                 {
@@ -280,16 +278,14 @@ public class BmsFileData
             }
             else if (line.WithCommand("#wav", out var wav))
             {
-                var wavSplit = wav.Split(' ').Where(c => !c.IsEmpty()).ToArray();
-
-                if (wavSplit.Length != 2)
+                if (wav.Length < 4)
                 {
                     Log.Warn(
                         $"{fp}: WAV command invalid, all notes/sfx associated with it won't be placed (Line: {i})");
                     continue;
                 }
 
-                bms._audioMap[wavSplit[0].ToLower()] = wavSplit[1];
+                bms._audioMap[wav[..2].ToLower()] = wav[3..];
             }
             else if (line.WithCommand("#", out var signalDef))
             {
