@@ -29,6 +29,10 @@ var result = parser.ParseArguments<Option>(args);
 
 result.WithParsed(o =>
 {
+    o.OutPath   = Path.GetFullPath(o.OutPath);
+    o.InputPath = Path.GetFullPath(o.InputPath);
+    o.Ffmpeg    = string.IsNullOrEmpty(o.Ffmpeg) ? "" : Path.GetFullPath(o.Ffmpeg);
+
     var osz = o.OutPath + ".osz";
 
     // avoid removing existing folder
