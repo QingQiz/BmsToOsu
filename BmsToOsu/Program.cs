@@ -35,6 +35,8 @@ result.WithParsed(o =>
 
     var osz = o.OutPath + ".osz";
 
+    #region check options
+
     // avoid removing existing folder
     if (Directory.Exists(o.OutPath) && !o.NoRemove)
     {
@@ -62,6 +64,10 @@ result.WithParsed(o =>
         return;
     }
 
+    #endregion
+
+    #region parse & convert
+
     var converter = new Converter(o.Ffmpeg);
 
     var ftc = new HashSet<string>();
@@ -70,10 +76,26 @@ result.WithParsed(o =>
         .GetFiles(o.InputPath, "*.*", SearchOption.AllDirectories)
         .Where(f => availableBmsExt.Any(ext => f.EndsWith(ext, StringComparison.OrdinalIgnoreCase)));
 
+    var skippedFileList = new List<string>();
+    var generationFailedList = new List<string>();
+
     void Proc(string path)
     {
         logger.Info($"Processing {path}");
-        converter.Convert(path, o, ftc);
+
+        switch (converter.Convert(path, o, ftc))
+        {
+            case ConvertResult.GenerationFailed:
+                lock (generationFailedList) generationFailedList.Add(path);
+                break;
+            case ConvertResult.InvalidData:
+                lock (skippedFileList) skippedFileList.Add(path);
+                break;
+            case ConvertResult.Success:
+                break;
+            default:
+                throw new ArgumentOutOfRangeException();
+        }
     }
 
     Parallel.ForEach(bms.GroupBy(Path.GetDirectoryName), groupedBms =>
@@ -87,6 +109,10 @@ result.WithParsed(o =>
             Parallel.ForEach(groupedBms, Proc);
         }
     });
+
+    #endregion
+
+    #region after convertion (e.g. remove temp files)
 
     if (!o.NoCopy)
     {
@@ -119,6 +145,24 @@ result.WithParsed(o =>
             File.Move(osz, o.OutPath);
         }
     }
+
+    if (skippedFileList.Any())
+    {
+        logger.Info(new string('-', 60));
+        logger.Info("Skipped List:");
+
+        skippedFileList.ForEach(path => logger.Info(path));
+    }
+
+    if (generationFailedList.Any())
+    {
+        logger.Info(new string('-', 60));
+        logger.Info("Generation Failed List:");
+
+        generationFailedList.ForEach(path => logger.Info(path));
+    }
+
+    #endregion
 });
 
 result.WithNotParsed(_ =>
@@ -132,6 +176,13 @@ result.WithNotParsed(_ =>
     Console.WriteLine(helpText);
 });
 
+
+internal enum ConvertResult
+{
+    GenerationFailed,
+    InvalidData,
+    Success
+}
 
 internal class Converter
 {
@@ -148,6 +199,7 @@ internal class Converter
     {
         var soundFileList = string.Join('\n', data.GetSoundFileList().Select(x => $"{x.SoundFile}:{x.StartTime:F3}"));
 
+        // eliminate duplicate generation tasks
         var otherSoundFileList = Directory.GetFiles(outDir, "*.sound_list");
         foreach (var f in otherSoundFileList)
         {
@@ -175,7 +227,7 @@ internal class Converter
         return filename;
     }
 
-    public void Convert(string bmsFilePath, Option option, HashSet<string> filesToCopy)
+    public ConvertResult Convert(string bmsFilePath, Option option, HashSet<string> filesToCopy)
     {
         var bmsDir    = Path.GetDirectoryName(bmsFilePath) ?? "";
         var outputDir = bmsDir.Replace(option.InputPath, option.OutPath);
@@ -190,7 +242,7 @@ internal class Converter
         }
         catch (InvalidDataException)
         {
-            return;
+            return ConvertResult.InvalidData;
         }
 
         var mp3Path = "";
@@ -205,17 +257,27 @@ internal class Converter
             {
                 _log.Error($"{data.BmsPath}: Generation Failed");
                 _log.Error(e.ToString());
-                return;
+                return ConvertResult.GenerationFailed;
             }
         }
 
         foreach (var includePlate in new[] { true, false })
         {
-            var (osu, ftc2) = data.ToOsuBeatMap(bmsDir, mp3Path, includePlate);
+            HashSet<string> ftc;
+            string          osuBeatmap;
+
+            try
+            {
+                (osuBeatmap, ftc) = data.ToOsuBeatMap(bmsDir, mp3Path, includePlate);
+            }
+            catch (BmsParserException)
+            {
+                return ConvertResult.GenerationFailed;
+            }
 
             lock (filesToCopy)
             {
-                foreach (var c in ftc2) filesToCopy.Add(Path.Join(bmsDir, c));
+                foreach (var c in ftc) filesToCopy.Add(Path.Join(bmsDir, c));
             }
 
             var plate = includePlate ? " (7+1K)" : "";
@@ -223,7 +285,9 @@ internal class Converter
             var osuName =
                 $"{data.Metadata.Title} - {data.Metadata.Artist} - BMS Converted{plate} - {Path.GetFileNameWithoutExtension(bmsFilePath)}.osu";
 
-            File.WriteAllText(Path.Join(outputDir, osuName.MakeValidFileName()), osu);
+            File.WriteAllText(Path.Join(outputDir, osuName.MakeValidFileName()), osuBeatmap);
         }
+
+        return ConvertResult.Success;
     }
 }

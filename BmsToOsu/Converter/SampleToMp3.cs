@@ -15,9 +15,18 @@ public class SampleToMp3
 
         private int _fileCount;
 
+        private static readonly List<(string, string)> Escape = new()
+        {
+            (@"\", @"\\\\"),
+            (@"=", @"\\\="),
+            (@",", @"\,"),
+            (@":", @"\\\:"),
+            (@"'", @"\\\'")
+        };
+
         private static string EscapeWindowsPath(string p)
         {
-            return $"'{p.Replace(@"\", @"\\").Replace(":", @"\:")}'";
+            return Escape.Aggregate(p, (current, e) => current.Replace(e.Item1, e.Item2));
         }
 
         public void AddFile(string path, double delay)
@@ -68,17 +77,51 @@ public class SampleToMp3
         {
             _ffmpeg = ffmpeg;
         }
+        _log = LogManager.GetLogger(typeof(SampleToMp3));
+
+    }
+
+    private readonly ILog _log;
+    private readonly Dictionary<string, bool> _fileValidity = new();
+
+    private bool CheckSoundValidity(string path, string workPath)
+    {
+        var fullPath = Path.Join(workPath, path);
+
+        if (_fileValidity.ContainsKey(fullPath)) return _fileValidity[fullPath];
+
+        using var p = new Process();
+
+        p.StartInfo.UseShellExecute  = false;
+        p.StartInfo.CreateNoWindow   = false;
+        p.StartInfo.WorkingDirectory = workPath;
+        p.StartInfo.FileName         = _ffmpeg;
+        p.StartInfo.Arguments = $"-i \"{path}\" -nostats -loglevel quiet -map 0:a -f null -";
+        
+        p.Start();
+        p.WaitForExit();
+        
+        var result = p.ExitCode == 0;
+
+        if (!result) _log.Error($"Invalid sound file: {fullPath}.");
+
+        return _fileValidity[fullPath] = result;
     }
 
     private void Generate(
-        List<(double StartTime, string SoundFile)> soundList, string workPath, string output)
+        IEnumerable<(double StartTime, string SoundFile)> soundList, string workPath, string output)
     {
         var filter = new FilterComplex();
 
-        foreach (var sound in soundList)
+        Parallel.ForEach(soundList, sound =>
         {
-            filter.AddFile(sound.SoundFile, sound.StartTime);
-        }
+            if (!CheckSoundValidity(sound.SoundFile, workPath))
+            {
+                return;
+            }
+
+            lock (filter) filter.AddFile(sound.SoundFile, sound.StartTime);
+        });
 
         var argsFile = Path.GetTempPath() + Guid.NewGuid() + ".txt";
 
@@ -106,8 +149,6 @@ public class SampleToMp3
 
     public void GenerateMp3(BmsFileData data, string output)
     {
-        var log = LogManager.GetLogger(typeof(SampleToMp3));
-
         var allSoundList = data.GetSoundFileList();
 
         var groupSize = Math.Min(allSoundList.Count / 10, 1300);
@@ -116,6 +157,7 @@ public class SampleToMp3
 
         var n = 0;
 
+        // group sound file list by every X elements
         while (true)
         {
             var l = allSoundList.Skip(n++ * groupSize).Take(groupSize).ToList();
@@ -126,19 +168,21 @@ public class SampleToMp3
 
         var workPath = Path.GetDirectoryName(data.BmsPath)!;
 
+        // generate mp3 in parallel
         Parallel.ForEach(groupedSoundList, g =>
         {
             var startTime = g.SoundList.Min(x => x.StartTime);
             var endTime   = g.SoundList.Max(x => x.StartTime);
 
-            log.Info(
+            _log.Info(
                 $"{data.BmsPath}: Generating {TimeSpan.FromMilliseconds(startTime)}-{TimeSpan.FromMilliseconds(endTime)}...");
 
             Generate(g.SoundList, workPath, g.Output);
         });
 
+        // merge temp mp3 files to result
         {
-            log.Info($"{data.BmsPath}: merging...");
+            _log.Info($"{data.BmsPath}: merging...");
 
             var soundList = groupedSoundList.Select(x => (0d, x.Output)).ToList();
 

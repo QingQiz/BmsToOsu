@@ -207,14 +207,14 @@ public static class Osu
                 if (startTime == lastStartTime)
                 {
                     log.Error($"{data.BmsPath}: Double note at the same time.");
-                    // throw new InvalidDataException();
+                    throw new BmsParserException();
                 }
 
                 // note in ln
                 if (startTime < lastEndTime)
                 {
                     log.Error($"{data.BmsPath}: Note in Ln. abort.");
-                    // throw new InvalidDataException();
+                    throw new BmsParserException();
                 }
 
                 var hitSound = string.IsNullOrEmpty(mp3) ? obj.HitSoundFile.Escape() : "";

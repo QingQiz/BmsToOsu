@@ -337,7 +337,7 @@ public class BmsFileData
     {
         if (string.IsNullOrEmpty(hitObject.HitSoundFile))
         {
-            Log.Error($"{BmsPath}: found empty hit sound");
+            Log.Debug($"{BmsPath}: found empty hit sound");
         }
 
         if (!hitObject.IsLongNote)
@@ -363,7 +363,6 @@ public class BmsFileData
             }
             else
             {
-                Log.Error($"{BmsPath}: double note at the same time");
                 HitObject[lane].Add(hitObject);
             }
         }
@@ -374,6 +373,12 @@ public class BmsFileData
     public static BmsFileData FromFile(string fp)
     {
         var data = CompileBmsToObj(fp);
+
+        if (data._audioMap.Count == 0)
+        {
+            Log.Error($"{fp}: The beatmap has no object, skipping...");
+            throw new InvalidDataException();
+        }
 
         var initBpm = data._startingBpm;
         data.TimingPoints[0] = initBpm;
