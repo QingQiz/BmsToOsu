@@ -547,7 +547,12 @@ public class BmsFileData
 
         _songFileList.AddRange(SoundEffects.Select(s => (s.StartTime, s.SoundFile)));
         _songFileList.AddRange(HitObject.Values.SelectMany(x => x).Select(x => (x.StartTime, x.HitSoundFile)));
-        _songFileList = _songFileList.OrderBy(l => l.StartTime).ThenBy(l => l.SoundFile).ToList();
+
+        _songFileList = _songFileList
+            .Where(l => !string.IsNullOrEmpty(l.SoundFile))
+            .OrderBy(l => l.StartTime)
+            .ThenBy(l => l.SoundFile)
+            .ToList();
 
         return _songFileList;
     }

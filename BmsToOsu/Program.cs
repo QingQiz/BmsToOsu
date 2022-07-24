@@ -193,10 +193,24 @@ internal class Converter
             return;
         }
 
+        var mp3Path = "";
+
+        if (option.GenerateMp3)
+        {
+            try
+            {
+                mp3Path = GenerateMp3(data, outputDir);
+            }
+            catch (Exception e)
+            {
+                _log.Error($"{data.BmsPath}: Generation Failed");
+                _log.Error(e.ToString());
+                return;
+            }
+        }
+
         foreach (var includePlate in new[] { true, false })
         {
-            var mp3Path = option.GenerateMp3 ? GenerateMp3(data, outputDir) : "";
-
             var (osu, ftc2) = data.ToOsuBeatMap(bmsDir, mp3Path, includePlate);
 
             lock (filesToCopy)
