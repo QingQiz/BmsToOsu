@@ -169,8 +169,13 @@ result.WithNotParsed(_ =>
 {
     var helpText = HelpText.AutoBuild(result, h =>
     {
-        h.AutoHelp    = true;
-        h.AutoVersion = false;
+        h.AutoHelp                      = true;
+        h.AutoVersion                   = false;
+        h.AutoVersion                   = false;
+        h.AdditionalNewLineAfterOption  = false;
+        h.AddNewLineBetweenHelpSections = false;
+        h.Heading                       = "";
+        h.Copyright                     = "Copyright (c) 2022 QINGQIZ";
         return HelpText.DefaultParsingErrorsHandler(result, h);
     }, e => e);
     Console.WriteLine(helpText);

@@ -4,7 +4,7 @@ namespace BmsToOsu;
 
 public class Option
 {
-    [Option('i', "input", Required = true, HelpText = "folder containing bms charts")]
+    [Option('i', "input", Required = true, HelpText = "folder containing .bms/.bml/.bme/.bmx")]
     public string InputPath { get; set; } = null!;
 
     [Option('o', "output", Required = true, HelpText = "output folder/filename. e.g. 114514.osz")]
@@ -19,8 +19,7 @@ public class Option
     [Option("no-remove", Required = false, Default = false, HelpText = "whether to remove the output folder after zipping it to .osz")]
     public bool NoRemove { get; set; }
 
-    [Option("generate-mp3", Required = false, Default = false,
-        HelpText = "generate full song file from sample files of bms with hit sound disabled")]
+    [Option("generate-mp3", Required = false, Default = false, HelpText = "generate complete song file from samples of bms")]
     public bool GenerateMp3 { get; set; }
 
     [Option("ffmpeg", Required = false, Default = "", HelpText = "path of ffmpeg")]
