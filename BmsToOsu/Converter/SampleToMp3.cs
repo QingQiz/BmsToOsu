@@ -90,7 +90,10 @@ public class SampleToMp3
     {
         var fullPath = Path.Join(workPath, path);
 
-        if (_fileValidity.ContainsKey(fullPath)) return _fileValidity[fullPath];
+        lock (_fileValidity)
+        {
+            if (_fileValidity.ContainsKey(fullPath)) return _fileValidity[fullPath];
+        }
 
         using var p = new Process();
 
@@ -107,7 +110,10 @@ public class SampleToMp3
 
         if (!result) _log.Error($"Invalid sound file: {fullPath}.");
 
-        return _fileValidity[fullPath] = result;
+        lock (_fileValidity)
+        {
+            return _fileValidity[fullPath] = result;
+        }
     }
 
     private void Generate(
