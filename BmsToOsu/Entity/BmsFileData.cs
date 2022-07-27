@@ -540,6 +540,12 @@ public class BmsFileData
             startTrackAt += fullLengthOfTrack;
         }
 
+        if (data.HitObject.Values.All(x => !x.Any()) && !data.SoundEffects.Any())
+        {
+            Log.Error($"{fp}: The beatmap has no object, skipping...");
+            throw new InvalidDataException();
+        }
+
         data.BgaFrames.Sort((a, b) => a.StartTime.CompareTo(b.StartTime));
         return data;
     }

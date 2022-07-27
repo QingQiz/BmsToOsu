@@ -20,6 +20,8 @@ public class SampleToMp3
             (@"\", @"\\\\"),
             (@"=", @"\\\="),
             (@",", @"\,"),
+            (@"[", @"\["),
+            (@"]", @"\]"),
             (@":", @"\\\:"),
             (@"'", @"\\\'")
         };
@@ -151,7 +153,7 @@ public class SampleToMp3
     {
         var allSoundList = data.GetSoundFileList();
 
-        var groupSize = Math.Min(allSoundList.Count / 10, 1300);
+        var groupSize = Math.Max(Math.Min(allSoundList.Count / 10, 1300), 10);
 
         var groupedSoundList = new List<(List<(double StartTime, string SoundFile)> SoundList, string Output)>();
 
