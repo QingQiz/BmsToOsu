@@ -7,7 +7,8 @@ namespace BmsToOsu.Converter;
 
 public static class Osu
 {
-    public static (string, HashSet<string> fileToCp) ToOsuBeatMap(this BmsFileData data, string dir, string mp3 = "", bool includePlate = false)
+    public static (string, HashSet<string> fileToCp) ToOsuBeatMap(
+        this BmsFileData data, string dir, bool noSv, string mp3 = "", bool includePlate = false)
     {
         var fileToCp = new HashSet<string>();
         var bd       = new StringBuilder();
@@ -159,6 +160,7 @@ public static class Osu
             if (i == 0)
             {
                 bd.AppendLine($"{j},{val},4,0,0,100,1,0");
+                if (noSv) break;
             }
             else
             {

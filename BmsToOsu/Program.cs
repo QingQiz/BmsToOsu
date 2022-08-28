@@ -165,6 +165,8 @@ result.WithParsed(o =>
     #endregion
 });
 
+#region help message
+
 result.WithNotParsed(_ =>
 {
     var helpText = HelpText.AutoBuild(result, h =>
@@ -181,6 +183,7 @@ result.WithNotParsed(_ =>
     Console.WriteLine(helpText);
 });
 
+#endregion
 
 internal enum ConvertResult
 {
@@ -273,7 +276,7 @@ internal class Converter
 
             try
             {
-                (osuBeatmap, ftc) = data.ToOsuBeatMap(bmsDir, mp3Path, includePlate);
+                (osuBeatmap, ftc) = data.ToOsuBeatMap(bmsDir, option.NoSv, mp3Path, includePlate);
             }
             catch (BmsParserException)
             {
