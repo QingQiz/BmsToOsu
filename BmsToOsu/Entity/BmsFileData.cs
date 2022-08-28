@@ -13,7 +13,7 @@ public class BmsFileData
     private string _lnObject = "";
     private Dictionary<int, List<Signal>> TrackSignals { get; } = new();
 
-    private List<(double StartTime, string SoundFile)>? _songFileList;
+    private List<Sample>? _songFileList;
 
     public Dictionary<int, List<HitObject>> HitObject { get; } = new()
     {
@@ -550,14 +550,14 @@ public class BmsFileData
         return data;
     }
 
-    public List<(double StartTime, string SoundFile)> GetSoundFileList()
+    public List<Sample> GetSoundFileList()
     {
         if (_songFileList != null) return _songFileList;
 
-        _songFileList = new List<(double StartTime, string SoundFile)>();
+        _songFileList = new List<Sample>();
 
-        _songFileList.AddRange(SoundEffects.Select(s => (s.StartTime, s.SoundFile)));
-        _songFileList.AddRange(HitObject.Values.SelectMany(x => x).Select(x => (x.StartTime, x.HitSoundFile)));
+        _songFileList.AddRange(SoundEffects.Select(s => new Sample(s.StartTime, s.SoundFile)));
+        _songFileList.AddRange(HitObject.Values.SelectMany(x => x).Select(x => new Sample(x.StartTime, x.HitSoundFile)));
 
         _songFileList = _songFileList
             .Where(l => !string.IsNullOrEmpty(l.SoundFile))

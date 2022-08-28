@@ -1,4 +1,5 @@
 ﻿using System.IO.Compression;
+using System.Threading.Channels;
 using BmsToOsu;
 using BmsToOsu.Converter;
 using BmsToOsu.Entity;
@@ -68,33 +69,28 @@ result.WithParsed(o =>
 
     #region parse & convert
 
-    var converter = new Converter(o.Ffmpeg);
-
-    var ftc = new HashSet<string>();
+    var converter = new Converter(o);
 
     var bms = Directory
         .GetFiles(o.InputPath, "*.*", SearchOption.AllDirectories)
         .Where(f => availableBmsExt.Any(ext => f.EndsWith(ext, StringComparison.OrdinalIgnoreCase)));
 
-    var skippedFileList = new List<string>();
+    var skippedFileList      = new List<string>();
     var generationFailedList = new List<string>();
 
-    void Proc(string path)
+    void Proc(params string[] path)
     {
-        logger.Info($"Processing {path}");
-
-        switch (converter.Convert(path, o, ftc))
+        try
         {
-            case ConvertResult.GenerationFailed:
-                lock (generationFailedList) generationFailedList.Add(path);
-                break;
-            case ConvertResult.InvalidData:
-                lock (skippedFileList) skippedFileList.Add(path);
-                break;
-            case ConvertResult.Success:
-                break;
-            default:
-                throw new ArgumentOutOfRangeException();
+            converter.Convert(path);
+        }
+        catch (BmsParserException e)
+        {
+            skippedFileList.AddRange(e.FailedList);
+        }
+        catch (GenerationFailedException e)
+        {
+            generationFailedList.AddRange(e.FailedList);
         }
     }
 
@@ -102,11 +98,11 @@ result.WithParsed(o =>
     {
         if (o.GenerateMp3)
         {
-            foreach (var fp in groupedBms) Proc(fp);
+            Proc(groupedBms.ToArray());
         }
         else
         {
-            Parallel.ForEach(groupedBms, Proc);
+            Parallel.ForEach(groupedBms, g => Proc(g));
         }
     });
 
@@ -117,7 +113,7 @@ result.WithParsed(o =>
     if (!o.NoCopy)
     {
         logger.Info("Copying files");
-        Parallel.ForEach(ftc, c =>
+        Parallel.ForEach(converter.FilesToCopy, c =>
         {
             var dest = c.Replace(o.InputPath, o.OutPath);
             dest = Path.Join(Path.GetDirectoryName(dest), Path.GetFileName(dest).Escape());
@@ -185,117 +181,153 @@ result.WithNotParsed(_ =>
 
 #endregion
 
-internal enum ConvertResult
+#region Help Class
+
+internal class GenerationFailedException : Exception
 {
-    GenerationFailed,
-    InvalidData,
-    Success
+    public readonly List<string> FailedList;
+
+    public GenerationFailedException(IEnumerable<string> generationFailedList)
+    {
+        FailedList = generationFailedList.ToList();
+    }
+}
+
+internal class BmsParserException : GenerationFailedException
+{
+    public BmsParserException(IEnumerable<string> generationFailedList) : base(generationFailedList)
+    {
+    }
 }
 
 internal class Converter
 {
-    public Converter(string ffmpeg)
-    {
-        _mp3Generator = new SampleToMp3(ffmpeg);
-        _log          = LogManager.GetLogger(nameof(Converter));
-    }
-
+    private readonly Option _option;
     private readonly SampleToMp3 _mp3Generator;
     private readonly ILog _log;
 
-    private string GenerateMp3(BmsFileData data, string outDir)
+    public readonly List<Task> Tasks = new();
+
+    public Converter(Option option)
     {
-        var soundFileList = string.Join('\n', data.GetSoundFileList().Select(x => $"{x.SoundFile}:{x.StartTime:F3}"));
-
-        // eliminate duplicate generation tasks
-        var otherSoundFileList = Directory.GetFiles(outDir, "*.sound_list");
-        foreach (var f in otherSoundFileList)
-        {
-            if (File.ReadAllText(f).Equals(soundFileList, StringComparison.OrdinalIgnoreCase))
-            {
-                _log.Warn($"{data.BmsPath}: found duplicate generation task, skipping...");
-                return Path.GetFileNameWithoutExtension(f);
-            }
-        }
-
-        var count    = otherSoundFileList.Length;
-        var filename = $"{data.Metadata.Title} - {data.Metadata.Artist}{(count == 0 ? "" : $" ({count})")}.mp3".MakeValidFileName();
-        var filePath = Path.Join(outDir, filename);
-
-        if (File.Exists(filePath))
-        {
-            _log.Warn($"{data.BmsPath}: {filename} exists, skipping...");
-            return filename;
-        }
-
-        _mp3Generator.GenerateMp3(data, filePath);
-
-        File.WriteAllText(filePath + ".sound_list", soundFileList);
-
-        return filename;
+        _option       = option;
+        _mp3Generator = new SampleToMp3(_option);
+        _log          = LogManager.GetLogger(nameof(Converter));
     }
 
-    public ConvertResult Convert(string bmsFilePath, Option option, HashSet<string> filesToCopy)
+    public readonly HashSet<string> FilesToCopy = new();
+
+    private void ConvertOne(BmsFileData data, string mp3Path, HashSet<Sample> excludingSounds)
     {
-        var bmsDir    = Path.GetDirectoryName(bmsFilePath) ?? "";
-        var outputDir = bmsDir.Replace(option.InputPath, option.OutPath);
+        var bmsDir    = Path.GetDirectoryName(data.BmsPath) ?? "";
+        var outputDir = bmsDir.Replace(_option.InputPath, _option.OutPath);
 
         Directory.CreateDirectory(outputDir);
 
-        BmsFileData data;
-
-        try
-        {
-            data = BmsFileData.FromFile(bmsFilePath);
-        }
-        catch (InvalidDataException)
-        {
-            return ConvertResult.InvalidData;
-        }
-
-        var mp3Path = "";
-
-        if (option.GenerateMp3)
-        {
-            try
-            {
-                mp3Path = GenerateMp3(data, outputDir);
-            }
-            catch (Exception e)
-            {
-                _log.Error($"{data.BmsPath}: Generation Failed");
-                _log.Error(e.ToString());
-                return ConvertResult.GenerationFailed;
-            }
-        }
-
         foreach (var includePlate in new[] { true, false })
         {
-            HashSet<string> ftc;
-            string          osuBeatmap;
+            var (osuBeatmap, ftc) = data.ToOsuBeatMap(excludingSounds, _option.NoSv, mp3Path, includePlate);
 
-            try
-            {
-                (osuBeatmap, ftc) = data.ToOsuBeatMap(bmsDir, option.NoSv, mp3Path, includePlate);
-            }
-            catch (BmsParserException)
-            {
-                return ConvertResult.GenerationFailed;
-            }
-
-            lock (filesToCopy)
-            {
-                foreach (var c in ftc) filesToCopy.Add(Path.Join(bmsDir, c));
-            }
+            foreach (var c in ftc)
+                lock (FilesToCopy)
+                    FilesToCopy.Add(Path.Join(bmsDir, c));
 
             var plate = includePlate ? " (7+1K)" : "";
 
-            var osuName =
-                $"{data.Metadata.Title} - {data.Metadata.Artist} - BMS Converted{plate} - {Path.GetFileNameWithoutExtension(bmsFilePath)}.osu";
+            var osuName = $"{data.Metadata.Title} - {data.Metadata.Artist} - BMS Converted{plate} - {Path.GetFileNameWithoutExtension(data.BmsPath)}.osu";
 
             File.WriteAllText(Path.Join(outputDir, osuName.MakeValidFileName()), osuBeatmap);
         }
+    }
 
-        return ConvertResult.Success;
+    public void Convert(string[] bmsFiles)
+    {
+        bmsFiles = bmsFiles.OrderBy(s => s).ToArray();
+
+        if (!bmsFiles.Any()) return;
+
+        List<Sample>? soundFileList = null;
+
+        var dataList       = new List<BmsFileData>();
+        var parseErrorList = new List<string>();
+
+        var workPath = Path.GetDirectoryName(bmsFiles[0])!;
+
+        foreach (var bmsFilePath in bmsFiles)
+        {
+            _log.Info($"Processing {bmsFilePath}");
+
+            BmsFileData data;
+
+            try
+            {
+                data = BmsFileData.FromFile(bmsFilePath);
+            }
+            catch (InvalidDataException)
+            {
+                parseErrorList.Add(bmsFilePath);
+                continue;
+            }
+
+            dataList.Add(data);
+
+            if (!_option.GenerateMp3) continue;
+
+            var soundFiles = data.GetSoundFileList();
+
+            soundFileList ??= soundFiles;
+            soundFileList =   soundFileList.Intersect(soundFiles, Sample.Comparer).ToList();
+
+            if (soundFileList.Count < soundFiles.Count / 2)
+            {
+                _log.Error($"{data.BmsPath}: The sampling intersection of the same song is too small, aborting");
+                throw new GenerationFailedException(bmsFiles);
+            }
+        }
+
+        if (!dataList.Any()) return;
+
+        var filename = $"{dataList[0].Metadata.Title} - {dataList[0].Metadata.Artist}.mp3".MakeValidFileName();
+
+        foreach (var data in dataList)
+        {
+            try
+            {
+                ConvertOne(data, filename, new HashSet<Sample>(soundFileList ?? new List<Sample>()));
+            }
+            catch (InvalidDataException)
+            {
+                parseErrorList.Add(data.BmsPath);
+            }
+        }
+
+        var mp3 = Path.Join(
+            Path.GetDirectoryName(dataList[0].BmsPath)!
+                .Replace(_option.InputPath, _option.OutPath)
+          , filename
+        );
+
+        try
+        {
+            if (File.Exists(mp3))
+            {
+                _log.Warn($"{workPath}: {mp3} exists, skipping...");
+            }
+            else
+            {
+                _mp3Generator.GenerateMp3(soundFileList!, workPath, mp3);
+            }
+        }
+        catch
+        {
+            throw new GenerationFailedException(bmsFiles);
+        }
+
+        if (parseErrorList.Any())
+        {
+            throw new BmsParserException(parseErrorList);
+        }
     }
 }
+
+#endregion

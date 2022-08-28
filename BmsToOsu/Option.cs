@@ -12,7 +12,7 @@ public class Option
 
     [Option("no-sv", Default = false, HelpText = "weather to include SV")]
     public bool NoSv { get; set; }
-    
+
     [Option("no-zip", Required = false, Default = false, HelpText = "whether to zip output folder to .osz")]
     public bool NoZip { get; set; }
 
@@ -27,4 +27,8 @@ public class Option
 
     [Option("ffmpeg", Required = false, Default = "", HelpText = "path of ffmpeg")]
     public string Ffmpeg { get; set; } = "";
+
+    [Option("max-threads", Default = 10, HelpText = "max number of ffmpeg threads")]
+    public int MaxThreads { get; set; }
+    
 }

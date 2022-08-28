@@ -8,8 +8,10 @@ namespace BmsToOsu.Converter;
 public static class Osu
 {
     public static (string, HashSet<string> fileToCp) ToOsuBeatMap(
-        this BmsFileData data, string dir, bool noSv, string mp3 = "", bool includePlate = false)
+        this BmsFileData data, HashSet<Sample> excludingSounds, bool noSv, string mp3 = "", bool includePlate = false)
     {
+        var dir = Path.GetDirectoryName(data.BmsPath)!;
+
         var fileToCp = new HashSet<string>();
         var bd       = new StringBuilder();
         var log      = LogManager.GetLogger(typeof(Osu));
@@ -127,27 +129,28 @@ public static class Osu
             if (!string.IsNullOrEmpty(bga.File)) fileToCp.Add(bga.File);
         }
 
-        if (string.IsNullOrEmpty(mp3))
+        // sound effect
+        foreach (var sfx in data.SoundEffects
+                     .Where(sfx => !string.IsNullOrEmpty(sfx.SoundFile))
+                     // ReSharper disable once PossibleUnintendedLinearSearchInSet
+                     // linear search is required
+                     .Where(sfx => !excludingSounds.Contains(new Sample(sfx.StartTime, sfx.SoundFile), Sample.Comparer)))
         {
-            // sound effect
-            foreach (var sfx in data.SoundEffects)
+            bd.AppendLine($"Sample,{(int)sfx.StartTime},0,\"{sfx.SoundFile.Escape()}\",100");
+            fileToCp.Add(sfx.SoundFile);
+        }
+
+        // hit sound -> sound effect
+        if (!includePlate)
+        {
+            foreach (var hitObj in data.HitObject[0]
+                         .Where(hitObj => !string.IsNullOrEmpty(hitObj.HitSoundFile))
+                         // ReSharper disable once PossibleUnintendedLinearSearchInSet
+                         // linear search is required
+                         .Where(hitObj => !excludingSounds.Contains(new Sample(hitObj.StartTime, hitObj.HitSoundFile), Sample.Comparer)))
             {
-                if (string.IsNullOrEmpty(sfx.SoundFile)) continue;
-
-                bd.AppendLine($"Sample,{(int)sfx.StartTime},0,\"{sfx.SoundFile.Escape()}\",100");
-                fileToCp.Add(sfx.SoundFile);
-            }
-
-            // hit sound -> sound effect
-            if (!includePlate)
-            {
-                foreach (var hitObj in data.HitObject[0])
-                {
-                    if (string.IsNullOrEmpty(hitObj.HitSoundFile)) continue;
-
-                    bd.AppendLine($"Sample,{(int)hitObj.StartTime},0,\"{hitObj.HitSoundFile.Escape()}\",100");
-                    fileToCp.Add(hitObj.HitSoundFile);
-                }
+                bd.AppendLine($"Sample,{(int)hitObj.StartTime},0,\"{hitObj.HitSoundFile.Escape()}\",100");
+                fileToCp.Add(hitObj.HitSoundFile);
             }
         }
 
@@ -214,17 +217,21 @@ public static class Osu
                 if (startTime == lastStartTime)
                 {
                     log.Error($"{data.BmsPath}: Double note at the same time.");
-                    throw new BmsParserException();
+                    throw new InvalidDataException();
                 }
 
                 // note in ln
                 if (startTime < lastEndTime)
                 {
                     log.Error($"{data.BmsPath}: Note in Ln. abort.");
-                    throw new BmsParserException();
+                    throw new InvalidDataException();
                 }
 
-                var hitSound = string.IsNullOrEmpty(mp3) ? obj.HitSoundFile.Escape() : "";
+                // ReSharper disable once PossibleUnintendedLinearSearchInSet
+                // linear search is required
+                var hitSound = excludingSounds.Contains(new Sample(obj.StartTime, obj.HitSoundFile), Sample.Comparer)
+                    ? ""
+                    : obj.HitSoundFile.Escape();
 
                 if (!string.IsNullOrEmpty(hitSound))
                 {
