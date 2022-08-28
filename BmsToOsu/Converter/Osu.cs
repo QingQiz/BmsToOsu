@@ -25,6 +25,11 @@ public static class Osu
             bd.AppendLine($"AudioFilename: {mp3}");
         }
 
+        if (includePlate)
+        {
+            bd.AppendLine("SpecialStyle: 1");
+        }
+
         bd.AppendLine("[Editor]");
         bd.AppendLine("DistanceSpacing: 1");
         bd.AppendLine("BeatDivisor: 1");
@@ -224,9 +229,11 @@ public static class Osu
                     fileToCp.Add(obj.HitSoundFile);
                 }
 
+                var hitSoundVolume = string.IsNullOrEmpty(hitSound) ? 30 : 0;
+
                 bd.AppendLine(ln
-                    ? $"{xPos},192,{startTime},{objType},0,{(int)obj.EndTime!}:0:0:0:0:{hitSound}"
-                    : $"{xPos},192,{startTime},{1 << 0},0,0:0:0:0:{hitSound}");
+                    ? $"{xPos},192,{startTime},{objType},0,{(int)obj.EndTime!}:0:0:0:{hitSoundVolume}:{hitSound}"
+                    : $"{xPos},192,{startTime},{1 << 0},0,0:0:0:{hitSoundVolume}:{hitSound}");
 
                 lastStartTime = startTime;
                 lastEndTime   = ln ? (int)obj.EndTime! : startTime;
