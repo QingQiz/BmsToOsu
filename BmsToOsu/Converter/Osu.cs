@@ -63,7 +63,11 @@ public static class Osu
 
         var bg = "";
 
-        if (File.Exists(Path.Join(dir, data.Metadata.StageFile)))
+        if (File.Exists(Path.Join(dir, data.Metadata.BackBmp)))
+        {
+            bg = data.Metadata.BackBmp;
+        }
+        else if (File.Exists(Path.Join(dir, data.Metadata.StageFile)))
         {
             bg = data.Metadata.StageFile;
         }

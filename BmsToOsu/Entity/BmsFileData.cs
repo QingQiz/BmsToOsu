@@ -193,6 +193,16 @@ public class BmsFileData
 
                 metadata.StageFile = stageFile;
             }
+            else if (line.WithCommand("#BACKBMP", out var backBmp))
+            {
+                if (backBmp.IsEmpty())
+                {
+                    Log.Warn($"{fp}: #BACKBMP is invalid, ignoring (Line: {i})");
+                    continue;
+                }
+
+                metadata.BackBmp = backBmp;
+            }
             else if (line.WithCommand("#banner", out var banner))
             {
                 if (banner.IsEmpty())
