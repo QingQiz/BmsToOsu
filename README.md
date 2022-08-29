@@ -5,19 +5,22 @@
 ## Usage
 
 ```
-  -i, --input        Required. folder containing .bms/.bml/.bme/.bmx
-  -o, --output       Required. output folder/filename. e.g. 114514.osz
-  --no-sv            (Default: false) weather to include SV
-  --no-zip           (Default: false) whether to zip output folder to .osz
-  --no-copy          (Default: false) whether to copy sound/image/video files
-                     into the output folder
-  --no-remove        (Default: false) whether to remove the output folder after
-                     zipping it to .osz
-  --generate-mp3     (Default: false) generate complete song file from samples
-                     of bms
-  --ffmpeg           (Default: ) path of ffmpeg
-  --max-threads      (Default: 10) max number of ffmpeg threads
-  --help             Display this help screen.
+  -i, --input       Required. input folder, the program will recursively search
+                    for available BMS beatmaps from this folder, available BMS
+                    beatmaps: .bms/.bml/.bme/.bmx
+  -o, --output      Required. output folder (the output folder will maintain the
+                    same directory structure as the input folder)
+  --no-sv           (Default: false) weather to include SV
+  --no-zip          (Default: false) whether to zip output folder to .osz
+  --no-copy         (Default: false) whether to copy sound/image/video files
+                    into the output folder
+  --no-remove       (Default: false) whether to remove the output folder after
+                    zipping it to .osz
+  --generate-mp3    (Default: false) generate complete song file from samples of
+                    bms
+  --ffmpeg          (Default: ) path of ffmpeg
+  --max-threads     (Default: 10) max number of ffmpeg threads
+  --help            Display this help screen.
 ```
 
 <details>
@@ -27,8 +30,9 @@
 </summary>
 
 ```
-  -i, --input       Required. 输入文件夹，可以解析的文件包括 .bms/.bml/.bme/.bmx
-  -o, --output      Required. 输出文件夹/文件名
+
+  -i, --input       Required. 输入文件夹，程序将在输入文件夹里递归查找可用的BMS谱面文件，可用的文件包括 .bms/.bml/.bme/.bmx
+  -o, --output      Required. 输出文件夹（输出文件夹将保持和输入文件夹相同的目录结构）
   --no-sv           是否包含 SV（即是否包含变速），默认包含
   --no-zip          是否将输出文件夹压缩成 .osz，默认压缩
   --no-copy         是否将 bms 谱面中的 声音/bga/图片 文件复制到输出文件夹，默认复制

@@ -4,10 +4,10 @@ namespace BmsToOsu;
 
 public class Option
 {
-    [Option('i', "input", Required = true, HelpText = "folder containing .bms/.bml/.bme/.bmx")]
+    [Option('i', "input", Required = true, HelpText = "input folder, the program will recursively search for available BMS beatmaps from this folder, available BMS beatmaps: .bms/.bml/.bme/.bmx")]
     public string InputPath { get; set; } = null!;
 
-    [Option('o', "output", Required = true, HelpText = "output folder/filename. e.g. 114514.osz")]
+    [Option('o', "output", Required = true, HelpText = "output folder (the output folder will maintain the same directory structure as the input folder)")]
     public string OutPath { get; set; } = null!;
 
     [Option("no-sv", Default = false, HelpText = "weather to include SV")]
