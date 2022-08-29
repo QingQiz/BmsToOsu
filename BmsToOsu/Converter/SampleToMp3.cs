@@ -1,6 +1,5 @@
 ﻿using System.Diagnostics;
 using System.Text;
-using BmsToOsu.Entity;
 using BmsToOsu.Utils;
 using log4net;
 
@@ -8,51 +7,13 @@ namespace BmsToOsu.Converter;
 
 public class SampleToMp3
 {
-    private class FilterComplex
-    {
-        private readonly StringBuilder _inputBuilder = new();
-        private readonly StringBuilder _delayBuilder = new();
-        private readonly StringBuilder _mixBuilder = new();
-
-        private int _fileCount;
-
-        private static readonly List<(string, string)> Escape = new()
-        {
-            (@"\", @"\\\\"),
-            (@"=", @"\\\="),
-            (@",", @"\,"),
-            (@";", @"\;"),
-            (@"[", @"\["),
-            (@"]", @"\]"),
-            (@":", @"\\\:"),
-            (@"'", @"\\\'")
-        };
-
-        private static string EscapeWindowsPath(string p)
-        {
-            return Escape.Aggregate(p, (current, e) => current.Replace(e.Item1, e.Item2));
-        }
-
-        public void AddFile(string path, double delay)
-        {
-            if (string.IsNullOrEmpty(path)) return;
-
-            _inputBuilder.AppendLine($"amovie={EscapeWindowsPath(path)}[input_{_fileCount}];");
-            _delayBuilder.AppendLine($"[input_{_fileCount}]adelay={delay:F3}|{delay:F3}[delay_{_fileCount}];");
-            _mixBuilder.Append($"[delay_{_fileCount}]");
-            _fileCount++;
-        }
-
-        public string GetScript()
-        {
-            return $"{_inputBuilder}{_delayBuilder}{_mixBuilder}amix=inputs={_fileCount}:normalize=0[mix]";
-        }
-    }
-
     private readonly string _ffmpeg;
     private readonly Option _option;
 
+    private readonly ILog _log;
     private readonly SemaphoreSlim _lock;
+
+    private readonly AudioValidator _validator;
 
     public SampleToMp3(Option option)
     {
@@ -90,57 +51,30 @@ public class SampleToMp3
             _ffmpeg = ffmpeg;
         }
 
-        _log = LogManager.GetLogger(typeof(SampleToMp3));
-    }
-
-    private readonly ILog _log;
-    private readonly Dictionary<string, bool> _fileValidity = new();
-
-    private bool CheckSoundValidity(string path, string workPath)
-    {
-        var fullPath = Path.Join(workPath, path);
-
-        lock (_fileValidity)
-        {
-            if (_fileValidity.ContainsKey(fullPath)) return _fileValidity[fullPath];
-        }
-
-        using var p = new Process();
-
-        p.StartInfo.UseShellExecute  = false;
-        p.StartInfo.CreateNoWindow   = false;
-        p.StartInfo.WorkingDirectory = workPath;
-        p.StartInfo.FileName         = _ffmpeg;
-        p.StartInfo.Arguments        = $"-i \"{path}\" -nostats -loglevel quiet -map 0:a -f null -";
-
-        p.Start();
-        p.WaitForExit();
-
-        var result = p.ExitCode == 0;
-
-        if (!result) _log.Error($"Invalid sound file: {fullPath}.");
-
-        lock (_fileValidity)
-        {
-            return _fileValidity[fullPath] = result;
-        }
+        _log       = LogManager.GetLogger(typeof(SampleToMp3));
+        _validator = new AudioValidator(_ffmpeg);
     }
 
     private void Generate(
-        IEnumerable<Sample> soundList, string workPath, string output)
+        List<Sample> soundList, string workPath, string output)
     {
         var filter = new FilterComplex();
 
-        // FIXME too slow, use binary search may faster
-        Parallel.ForEach(soundList, sound =>
-        {
-            if (!CheckSoundValidity(sound.SoundFile, workPath))
-            {
-                return;
-            }
+        var invalidSound = _validator.CheckSoundValidity(
+            soundList.Select(s => s.SoundFile).ToList(), workPath
+        ).Result.ToHashSet();
 
-            lock (filter) filter.AddFile(sound.SoundFile, sound.StartTime);
-        });
+        foreach (var sound in soundList)
+        {
+            if (invalidSound.Contains(sound.SoundFile))
+            {
+                _log.Error($"Invalid Sound File: {Path.Join(workPath, sound.SoundFile)}, ignoring...");
+            }
+            else
+            {
+                filter.AddFile(sound.SoundFile, sound.StartTime);
+            }
+        }
 
         var argsFile = Path.GetTempPath() + Guid.NewGuid() + ".txt";
 
@@ -218,5 +152,46 @@ public class SampleToMp3
 
             soundList.ForEach(l => File.Delete(l.SoundFile));
         }
+    }
+}
+
+internal class FilterComplex
+{
+    private readonly StringBuilder _inputBuilder = new();
+    private readonly StringBuilder _delayBuilder = new();
+    private readonly StringBuilder _mixBuilder = new();
+
+    private int _fileCount;
+
+    private static readonly List<(string, string)> Escape = new()
+    {
+        (@"\", @"\\\\"),
+        (@"=", @"\\\="),
+        (@",", @"\,"),
+        (@";", @"\;"),
+        (@"[", @"\["),
+        (@"]", @"\]"),
+        (@":", @"\\\:"),
+        (@"'", @"\\\'")
+    };
+
+    private static string EscapeWindowsPath(string p)
+    {
+        return Escape.Aggregate(p, (current, e) => current.Replace(e.Item1, e.Item2));
+    }
+
+    public void AddFile(string path, double delay)
+    {
+        if (string.IsNullOrEmpty(path)) return;
+
+        _inputBuilder.AppendLine($"amovie={EscapeWindowsPath(path)}[input_{_fileCount}];");
+        _delayBuilder.AppendLine($"[input_{_fileCount}]adelay={delay:F3}|{delay:F3}[delay_{_fileCount}];");
+        _mixBuilder.Append($"[delay_{_fileCount}]");
+        _fileCount++;
+    }
+
+    public string GetScript()
+    {
+        return $"{_inputBuilder}{_delayBuilder}{_mixBuilder}amix=inputs={_fileCount}:normalize=0[mix]";
     }
 }
