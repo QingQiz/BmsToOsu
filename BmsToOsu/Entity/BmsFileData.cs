@@ -350,32 +350,7 @@ public class BmsFileData
             Log.Debug($"{BmsPath}: found empty hit sound");
         }
 
-        if (!hitObject.IsLongNote)
-        {
-            HitObject[lane].Add(hitObject);
-            return;
-        }
-
-        var lastObj = HitObject[lane].LastOrDefault();
-
-        if (lastObj == null)
-        {
-            HitObject[lane].Add(hitObject);
-            return;
-        }
-
-        if ((int)hitObject.StartTime == (int)lastObj.StartTime)
-        {
-            if (lastObj.HitSoundFile == hitObject.HitSoundFile)
-            {
-                lastObj.IsLongNote = hitObject.IsLongNote;
-                lastObj.EndTime    = hitObject.EndTime;
-            }
-            else
-            {
-                HitObject[lane].Add(hitObject);
-            }
-        }
+        HitObject[lane].Add(hitObject);
     }
 
     #endregion
