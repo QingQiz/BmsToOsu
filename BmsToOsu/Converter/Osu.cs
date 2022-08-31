@@ -75,6 +75,10 @@ public static class Osu
         {
             bg = data.Metadata.Banner;
         }
+        else if (data.BgaFrames.Any())
+        {
+            bg = data.BgaFrames[data.BgaFrames.Count / 2].File;
+        }
 
         if (string.IsNullOrEmpty(bg))
         {
