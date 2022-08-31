@@ -4,7 +4,7 @@ public class Sample
 {
     public readonly double StartTime;
     public readonly string SoundFile;
-    public static SampleEqualityComparer Comparer = new SampleEqualityComparer();
+    public static readonly SampleEqualityComparer Comparer = new();
 
     public Sample(double startTime, string soundFile)
     {

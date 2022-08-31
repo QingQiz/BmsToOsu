@@ -276,17 +276,13 @@ internal class Converter
 
             soundFileList ??= soundFiles;
             soundFileList =   soundFileList.Intersect(soundFiles, Sample.Comparer).ToList();
-
-            if (soundFileList.Count < soundFiles.Count / 2)
-            {
-                _log.Error($"{data.BmsPath}: The sampling intersection of the same song is too small, aborting");
-                throw new GenerationFailedException(bmsFiles);
-            }
         }
 
         if (!dataList.Any()) return;
 
-        var filename = $"{dataList[0].Metadata.Title} - {dataList[0].Metadata.Artist}.mp3".MakeValidFileName();
+        var filename = _option.GenerateMp3 && soundFileList != null && soundFileList.Any()
+            ? $"{dataList[0].Metadata.Title} - {dataList[0].Metadata.Artist}.mp3".MakeValidFileName()
+            : "";
 
         foreach (var data in dataList)
         {
@@ -306,20 +302,30 @@ internal class Converter
           , filename
         );
 
-        try
+        if (_option.GenerateMp3)
         {
-            if (File.Exists(mp3))
+            try
             {
-                _log.Warn($"{workPath}: {mp3} exists, skipping...");
+                if (File.Exists(mp3))
+                {
+                    _log.Warn($"{workPath}: {mp3} exists, skipping...");
+                }
+                else
+                {
+                    if (soundFileList != null && soundFileList.Any())
+                    {
+                        _mp3Generator.GenerateMp3(soundFileList, workPath, mp3);
+                    }
+                    else
+                    {
+                        _log.Warn($"{workPath}: The sampling intersection of the same song is too small, use hit sound instead.");
+                    }
+                }
             }
-            else
+            catch
             {
-                _mp3Generator.GenerateMp3(soundFileList!, workPath, mp3);
+                throw new GenerationFailedException(bmsFiles);
             }
-        }
-        catch
-        {
-            throw new GenerationFailedException(bmsFiles);
         }
 
         if (parseErrorList.Any())
