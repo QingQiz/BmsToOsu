@@ -63,6 +63,7 @@ public static class Osu
 
         var bg = "";
 
+        var imgExt = new[] { ".jpg", ".png", ".jpeg" };
         if (File.Exists(Path.Join(dir, data.Metadata.BackBmp)))
         {
             bg = data.Metadata.BackBmp;
@@ -77,15 +78,22 @@ public static class Osu
         }
         else if (data.BgaFrames.Any())
         {
-            bg = data.BgaFrames[data.BgaFrames.Count / 2].File;
+            var bga = data.BgaFrames
+                .Where(x => imgExt
+                    .Any(ext => x.File.EndsWith(ext, StringComparison.OrdinalIgnoreCase)))
+                .ToList();
+
+            if (bga.Any())
+            {
+                bg = bga[bga.Count / 2].File;
+            }
         }
 
         if (string.IsNullOrEmpty(bg))
         {
-            var ext = new[] { ".jpg", ".png", ".jpeg" };
             bg = Directory
                 .GetFiles(dir, "*.*", SearchOption.TopDirectoryOnly)
-                .FirstOrDefault(f => ext.Any(e => f.EndsWith(e, StringComparison.OrdinalIgnoreCase))) ?? "";
+                .FirstOrDefault(f => imgExt.Any(e => f.EndsWith(e, StringComparison.OrdinalIgnoreCase))) ?? "";
         }
 
         if (!string.IsNullOrEmpty(bg))
