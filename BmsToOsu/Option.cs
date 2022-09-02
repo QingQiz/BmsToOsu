@@ -25,7 +25,7 @@ public class Option
     [Option("generate-mp3", Required = false, Default = false, HelpText = "generate complete song file from samples of bms")]
     public bool GenerateMp3 { get; set; }
 
-    [Option("ffmpeg", Required = false, Default = "", HelpText = "path of ffmpeg")]
+    [Option("ffmpeg", Required = false, Default = "", HelpText = "path of ffmpeg (The program will look for ffmpeg in the PATH by default)")]
     public string Ffmpeg { get; set; } = "";
 
     [Option("max-threads", Default = 10, HelpText = "max number of ffmpeg threads")]

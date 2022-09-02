@@ -4,6 +4,7 @@
 
 ## Usage
 
+### Command Line Arguments
 ```
   -i, --input       Required. input folder, the program will recursively search
                     for available BMS beatmaps from this folder, available BMS
@@ -18,7 +19,8 @@
                     zipping it to .osz
   --generate-mp3    (Default: false) generate complete song file from samples of
                     bms
-  --ffmpeg          (Default: ) path of ffmpeg
+  --ffmpeg          (Default: ) path of ffmpeg (The program will look for ffmpeg
+                    in the PATH by default)
   --max-threads     (Default: 10) max number of ffmpeg threads
   --help            Display this help screen.
 ```
@@ -44,11 +46,17 @@
 ```
 </details>
 
+#### Example
 
-### Example
-
-1. `.\BmsToOsu.exe -i /path/to/G2R2018 -o /path/to/osu!/Songs/G2R2018 --no-zip --no-remove` will convert G2R2018 to osu beatmaps and put it into the osu! Song folder 
+1. `.\BmsToOsu.exe -i /path/to/G2R2018 -o /path/to/osu!/Songs/G2R2018 --no-zip --no-remove` will convert G2R2018 to osu beatmaps and put it into the osu! Song folder
 2. `.\BmsToOsu.exe -i /path/to/G2R2018 -o /G2R2018` will generate a .osz file named G2R2018.osz
+
+
+### Command Line Gui
+
+If no startup parameters are passed to the program, the program will start a command line GUI:
+
+[![image.png](https://i.postimg.cc/zDbtkwpx/image.png)](https://postimg.cc/hhn1Ddkm)
 
 ## Credits
 
