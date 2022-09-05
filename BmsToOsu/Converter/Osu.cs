@@ -8,7 +8,7 @@ namespace BmsToOsu.Converter;
 public static class Osu
 {
     public static (string, HashSet<string> fileToCp) ToOsuBeatMap(
-        this BmsFileData data, HashSet<Sample> excludingSounds, bool noSv, string mp3 = "", bool includePlate = false)
+        this BmsFileData data, HashSet<Sample> excludingSamples, bool noSv, string mp3 = "", bool includePlate = false)
     {
         var dir = Path.GetDirectoryName(data.BmsPath)!;
 
@@ -145,29 +145,42 @@ public static class Osu
             if (!string.IsNullOrEmpty(bga.File)) fileToCp.Add(bga.File);
         }
 
+        var samples = new List<Sample>();
+
         // sound effect
-        foreach (var sfx in data.SoundEffects
-                     .Where(sfx => !string.IsNullOrEmpty(sfx.SoundFile))
-                     // ReSharper disable once PossibleUnintendedLinearSearchInSet
-                     // linear search is required
-                     .Where(sfx => !excludingSounds.Contains(new Sample(sfx.StartTime, sfx.SoundFile), Sample.Comparer)))
-        {
-            bd.AppendLine($"Sample,{(int)sfx.StartTime},0,\"{sfx.SoundFile.Escape()}\",100");
-            fileToCp.Add(sfx.SoundFile);
-        }
+        samples.AddRange(data.SoundEffects
+            .Where(sample => !string.IsNullOrEmpty(sample.SoundFile))
+            // ReSharper disable once PossibleUnintendedLinearSearchInSet
+            // linear search is required
+            .Where(sample => !excludingSamples.Contains(sample, Sample.Comparer))
+        );
 
         // hit sound -> sound effect
+        if (!string.IsNullOrEmpty(mp3))
+        {
+            samples.AddRange(data.HitObject.Values.SelectMany(h => h)
+                .Where(hitObj => !string.IsNullOrEmpty(hitObj.HitSoundFile))
+                .Select(hitObj => new Sample(hitObj.StartTime, hitObj.HitSoundFile))
+                // ReSharper disable once PossibleUnintendedLinearSearchInSet
+                // linear search is required
+                .Where(sample => !excludingSamples.Contains(sample))
+            );
+        }
         if (!includePlate)
         {
-            foreach (var hitObj in data.HitObject[0]
-                         .Where(hitObj => !string.IsNullOrEmpty(hitObj.HitSoundFile))
-                         // ReSharper disable once PossibleUnintendedLinearSearchInSet
-                         // linear search is required
-                         .Where(hitObj => !excludingSounds.Contains(new Sample(hitObj.StartTime, hitObj.HitSoundFile), Sample.Comparer)))
-            {
-                bd.AppendLine($"Sample,{(int)hitObj.StartTime},0,\"{hitObj.HitSoundFile.Escape()}\",100");
-                fileToCp.Add(hitObj.HitSoundFile);
-            }
+            samples.AddRange(data.HitObject[0]
+                .Where(hitObj => !string.IsNullOrEmpty(hitObj.HitSoundFile))
+                .Select(hitObj => new Sample(hitObj.StartTime, hitObj.HitSoundFile))
+                // ReSharper disable once PossibleUnintendedLinearSearchInSet
+                // linear search is required
+                .Where(sample => !excludingSamples.Contains(sample))
+            );
+        }
+
+        foreach (var sample in samples.ToHashSet(Sample.Comparer).OrderBy(s => s.StartTime))
+        {
+            bd.AppendLine($"Sample,{(int)sample.StartTime},0,\"{sample.SoundFile.Escape()}\",100");
+            fileToCp.Add(sample.SoundFile);
         }
 
         // timing points
@@ -245,9 +258,11 @@ public static class Osu
 
                 // ReSharper disable once PossibleUnintendedLinearSearchInSet
                 // linear search is required
-                var hitSound = excludingSounds.Contains(new Sample(obj.StartTime, obj.HitSoundFile), Sample.Comparer)
-                    ? ""
-                    : obj.HitSoundFile.Escape();
+                var hitSound = string.IsNullOrEmpty(mp3)
+                    ? excludingSamples.Contains(new Sample(obj.StartTime, obj.HitSoundFile), Sample.Comparer)
+                        ? ""
+                        : obj.HitSoundFile.Escape()
+                    : "";
 
                 if (!string.IsNullOrEmpty(hitSound))
                 {
