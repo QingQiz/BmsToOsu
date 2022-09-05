@@ -101,7 +101,7 @@ public class SampleToMp3
         File.Delete(argsFile);
     }
 
-    public void GenerateMp3(List<Sample> allSoundList, string workPath, string output)
+    public HashSet<string> GenerateMp3(List<Sample> allSoundList, string workPath, string output)
     {
         var invalidSound = _validator.CheckSoundValidity(
             allSoundList.Select(s => s.SoundFile).ToList(), workPath
@@ -155,6 +155,8 @@ public class SampleToMp3
 
             soundList.ForEach(l => File.Delete(l.SoundFile));
         }
+
+        return invalidSound;
     }
 }
 

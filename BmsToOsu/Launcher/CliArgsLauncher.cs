@@ -215,7 +215,7 @@ internal class Converter
 
     public readonly HashSet<string> FilesToCopy = new();
 
-    private void ConvertOne(BmsFileData data, string mp3Path, HashSet<Sample> excludingSounds)
+    private void ConvertOne(BmsFileData data, string mp3Path, HashSet<Sample> excludingSamples)
     {
         var bmsDir    = Path.GetDirectoryName(data.BmsPath) ?? "";
         var outputDir = bmsDir.Replace(_option.InputPath, _option.OutPath);
@@ -224,7 +224,7 @@ internal class Converter
 
         foreach (var includePlate in new[] { true, false })
         {
-            var (osuBeatmap, ftc) = data.ToOsuBeatMap(excludingSounds, _option.NoSv, mp3Path, includePlate);
+            var (osuBeatmap, ftc) = data.ToOsuBeatMap(excludingSamples, _option.NoSv, mp3Path, includePlate);
 
             foreach (var c in ftc)
                 lock (FilesToCopy)
@@ -283,23 +283,13 @@ internal class Converter
             ? $"{dataList[0].Metadata.Title} - {dataList[0].Metadata.Artist}.mp3".MakeValidFileName()
             : "";
 
-        foreach (var data in dataList)
-        {
-            try
-            {
-                ConvertOne(data, filename, new HashSet<Sample>(soundFileList ?? new List<Sample>()));
-            }
-            catch (InvalidDataException)
-            {
-                parseErrorList.Add(data.BmsPath);
-            }
-        }
-
         var mp3 = Path.Join(
             Path.GetDirectoryName(dataList[0].BmsPath)!
                 .Replace(_option.InputPath, _option.OutPath)
           , filename
         );
+
+        var invalidSound = new HashSet<string>();
 
         if (_option.GenerateMp3)
         {
@@ -313,7 +303,7 @@ internal class Converter
                 {
                     if (soundFileList != null && soundFileList.Any())
                     {
-                        _mp3Generator.GenerateMp3(soundFileList, workPath, mp3);
+                        invalidSound = _mp3Generator.GenerateMp3(soundFileList, workPath, mp3);
                     }
                     else
                     {
@@ -324,6 +314,24 @@ internal class Converter
             catch
             {
                 throw new GenerationFailedException(bmsFiles);
+            }
+        }
+
+        foreach (var data in dataList)
+        {
+            try
+            {
+                // filter invalid sound file
+                data.HitObject.Values.SelectMany(h => h)
+                    .Where(h => invalidSound.Contains(h.HitSoundFile)).ToList()
+                    .ForEach(h => h.HitSoundFile = "");
+                data.SoundEffects.RemoveAll(s => invalidSound.Contains(s.SoundFile));
+
+                ConvertOne(data, filename, new HashSet<Sample>(soundFileList ?? new List<Sample>(), Sample.Comparer));
+            }
+            catch (InvalidDataException)
+            {
+                parseErrorList.Add(data.BmsPath);
             }
         }
 
