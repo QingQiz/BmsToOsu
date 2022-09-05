@@ -11,7 +11,4 @@ if (args.Any())
 else
 {
     GuiLauncher.Launch();
-
-    Console.WriteLine("Press Any Key To Exit");
-    Console.ReadKey();
 }

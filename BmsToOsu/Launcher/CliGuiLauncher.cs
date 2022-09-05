@@ -377,6 +377,9 @@ public static class GuiLauncher
         if (_option != null)
         {
             CliArgsLauncher.Convert(_option);
+
+            Console.WriteLine("Press Any Key To Exit");
+            Console.ReadKey();
         }
     }
 }
