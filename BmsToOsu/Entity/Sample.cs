@@ -1,10 +1,10 @@
-﻿namespace BmsToOsu.Utils;
+namespace BmsToOsu.Entity;
 
 public class Sample
 {
     public readonly double StartTime;
     public readonly string SoundFile;
-    public static readonly SampleEqualityComparer Comparer = new();
+    public static SampleEqualityComparer Comparer => new();
 
     public Sample(double startTime, string soundFile)
     {
@@ -19,11 +19,14 @@ public class SampleEqualityComparer : IEqualityComparer<Sample>
     {
         if (x == null || y == null) return false;
 
-        return Math.Abs(x.StartTime - y.StartTime) < 0.1 && x.SoundFile == y.SoundFile;
+        // maybe 10ms is better?
+        return Math.Abs(x.StartTime - y.StartTime) < 5 && x.SoundFile == y.SoundFile;
     }
 
     public int GetHashCode(Sample obj)
     {
-        return HashCode.Combine(obj.StartTime, obj.SoundFile);
+        // should not combine obj.StartTime
+        // IEnumerate.Intersect will first check `GetHashCode` and if not equal then `Equals` will not be called
+        return obj.SoundFile.GetHashCode();
     }
 }

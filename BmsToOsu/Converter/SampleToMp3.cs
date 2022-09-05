@@ -1,5 +1,6 @@
 ﻿using System.Diagnostics;
 using System.Text;
+using BmsToOsu.Entity;
 using BmsToOsu.Utils;
 using log4net;
 

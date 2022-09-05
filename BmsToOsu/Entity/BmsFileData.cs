@@ -33,7 +33,7 @@ public class BmsFileData
     // map audio reference to effect sound file name
     private Dictionary<string, string> _audioMap = new();
     private readonly IndexData _indices = new();
-    public List<SoundEffect> SoundEffects { get; } = new();
+    public List<Sample> SoundEffects { get; } = new();
 
     private static readonly ILog Log = LogManager.GetLogger(typeof(BmsFileData));
 
@@ -339,7 +339,7 @@ public class BmsFileData
     {
         if (_audioMap.ContainsKey(target))
         {
-            SoundEffects.Add(new SoundEffect(time, _audioMap[target]));
+            SoundEffects.Add(new Sample(time, _audioMap[target]));
         }
     }
 
