@@ -55,19 +55,16 @@ public class AudioValidator
 
         var result = p.ExitCode == 0;
 
-        if (!result && soundName.Count == 1)
+        lock (FileValidity)
         {
-            lock (FileValidity)
+            switch (result)
             {
-                FileValidity[soundName[0]] = result;
-            }
-        }
-
-        if (result)
-        {
-            lock (FileValidity)
-            {
-                soundName.ForEach(s => { FileValidity[s] = true; });
+                case false when soundName.Count == 1:
+                    FileValidity[soundName[0]] = result;
+                    break;
+                case true:
+                    soundName.ForEach(s => { FileValidity[s] = true; });
+                    break;
             }
         }
 
@@ -76,6 +73,8 @@ public class AudioValidator
 
     public async Task<List<string>> CheckSoundValidity(List<string> soundName, string workPath)
     {
+        soundName = soundName.Distinct().ToList();
+        
         var channel = Channel.CreateUnbounded<(int l, int r)>();
 
         channel.Writer.TryWrite((0, soundName.Count));
@@ -83,7 +82,8 @@ public class AudioValidator
         var result = new List<string>();
         var tasks  = new List<Task>();
         var count  = 0;
-        var @lock  = new object();
+        // lock count & result
+        var @lock = new object();
 
         while (await channel.Reader.WaitToReadAsync())
         {

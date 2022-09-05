@@ -61,20 +61,9 @@ public class SampleToMp3
     {
         var filter = new FilterComplex();
 
-        var invalidSound = _validator.CheckSoundValidity(
-            soundList.Select(s => s.SoundFile).ToList(), workPath
-        ).Result.ToHashSet();
-
         foreach (var sound in soundList)
         {
-            if (invalidSound.Contains(sound.SoundFile))
-            {
-                _log.Error($"Invalid Sound File: {Path.Join(workPath, sound.SoundFile)}, ignoring...");
-            }
-            else
-            {
-                filter.AddFile(sound.SoundFile, sound.StartTime);
-            }
+            filter.AddFile(sound.SoundFile, sound.StartTime);
         }
 
         var argsFile = Path.GetTempPath() + Guid.NewGuid() + ".txt";
@@ -94,6 +83,8 @@ public class SampleToMp3
         _lock.Wait();
         try
         {
+            Directory.CreateDirectory(Path.GetDirectoryName(output)!);
+
             p.Start();
             p.WaitForExit();
         }
@@ -112,6 +103,17 @@ public class SampleToMp3
 
     public void GenerateMp3(List<Sample> allSoundList, string workPath, string output)
     {
+        var invalidSound = _validator.CheckSoundValidity(
+            allSoundList.Select(s => s.SoundFile).ToList(), workPath
+        ).Result.ToHashSet();
+
+        foreach (var sound in invalidSound)
+        {
+            _log.Error($"Invalid Sound File: {Path.Join(workPath, sound)}, ignoring...");
+        }
+
+        allSoundList = allSoundList.Where(s => !invalidSound.Contains(s.SoundFile)).ToList();
+
         // ffmpeg can open at most 1300 files
         var groupSize = Math.Max(
             Math.Min((allSoundList.Count + _option.MaxThreads - 1) / _option.MaxThreads, 1300)
