@@ -13,6 +13,9 @@ public class Option
     [Option("no-sv", Default = false, HelpText = "weather to include SV")]
     public bool NoSv { get; set; }
 
+    [Option("include-no-sv", Default = false, HelpText = "weather to include NSV version")]
+    public bool IncludeNoSv { get; set; }
+
     [Option("no-zip", Required = false, Default = false, HelpText = "whether to zip output folder to .osz")]
     public bool NoZip { get; set; }
 

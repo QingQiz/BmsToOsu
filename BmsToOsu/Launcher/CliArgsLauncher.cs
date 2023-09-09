@@ -64,6 +64,11 @@ public static class CliArgsLauncher
             o.NoRemove = true;
         }
 
+        if (o.NoSv && o.IncludeNoSv)
+        {
+            o.IncludeNoSv = false;
+        }
+
         if (o.NoCopy && o.GenerateMp3)
         {
             Log.Error($"`--no-copy` is conflict with `--generate-mp3`");
@@ -224,17 +229,20 @@ internal class Converter
 
         foreach (var includePlate in new[] { true, false })
         {
-            var (osuBeatmap, ftc) = data.ToOsuBeatMap(excludingSamples, _option.NoSv, mp3Path, includePlate);
+            foreach (var sv in (!_option.NoSv && _option.IncludeNoSv) ? new[] { true, false } : new[] { _option.NoSv })
+            {
+                var (osuBeatmap, ftc) = data.ToOsuBeatMap(excludingSamples, sv, mp3Path, includePlate);
 
-            foreach (var c in ftc)
-                lock (FilesToCopy)
-                    FilesToCopy.Add(Path.Join(bmsDir, c));
+                foreach (var c in ftc)
+                    lock (FilesToCopy)
+                        FilesToCopy.Add(Path.Join(bmsDir, c));
 
-            var plate = includePlate ? " (7+1K)" : "";
+                var plate = includePlate ? " (7+1K)" : "";
 
-            var osuName = $"{data.Metadata.Title} - {data.Metadata.Artist} - BMS Converted{plate} - {Path.GetFileNameWithoutExtension(data.BmsPath)}.osu";
+                var osuName = $"{data.Metadata.Title} - {data.Metadata.Artist} - BMS Converted{plate} - {Path.GetFileNameWithoutExtension(data.BmsPath)}.osu";
 
-            File.WriteAllText(Path.Join(outputDir, osuName.MakeValidFileName()), osuBeatmap);
+                File.WriteAllText(Path.Join(outputDir, osuName.MakeValidFileName()), osuBeatmap);
+            }
         }
     }
 

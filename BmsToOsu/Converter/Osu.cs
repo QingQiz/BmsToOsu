@@ -47,7 +47,7 @@ public static class Osu
         bd.AppendLine($"Creator:{StringExt.AppendSubArtist(data.Metadata.Artist, data.Metadata.SubArtists)}");
         bd.AppendLine("Source:BMS");
         bd.AppendLine($"Tags:{data.Metadata.Tags} BMS Converted");
-        bd.AppendLine($"Version:Lv. {data.Metadata.Difficulty}");
+        bd.AppendLine($"Version:{(noSv ? "[NSV]" : "")}Lv. {data.Metadata.Difficulty}");
         bd.AppendLine("BeatmapID:0");
         bd.AppendLine("BeatmapSetID:0");
 
@@ -201,10 +201,10 @@ public static class Osu
                     val = 999999999.0;
                 }
 
-                if (val < 0)
-                {
-                    val = Math.Abs(val);
-                }
+                // if (val < 0)
+                // {
+                //     val = Math.Abs(val);
+                // }
 
                 bd.AppendLine($"{j},{val},4,0,0,100,1,0");
                 bd.AppendLine($"{j},-100,4,0,0,100,0,0");

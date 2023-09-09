@@ -58,6 +58,7 @@ public static class GuiLauncher
     private static bool _remove = true;
     private static bool _copy = true;
     private static bool _sv = true;
+    private static bool _includeNsv;
 
     private static bool _generateMp3;
     private static string _ffmpeg = "";
@@ -164,6 +165,7 @@ public static class GuiLauncher
             NoCopy      = !_copy,
             NoRemove    = !_remove,
             NoSv        = !_sv,
+            IncludeNoSv = _includeNsv,
             NoZip       = !_zip
         };
 
@@ -252,6 +254,10 @@ public static class GuiLauncher
         {
             ColorScheme = ButtonScheme
         };
+        var includeNsv = new CheckBox(3, y++, "Include NSV version", false)
+        {
+            ColorScheme = ButtonScheme
+        };
         var zip = new CheckBox(1, y++, "Zip output folder to .osz", true)
         {
             ColorScheme = ButtonScheme
@@ -268,7 +274,7 @@ public static class GuiLauncher
         var frameViewConfig = new FrameView("Configuration")
         {
             Width       = Dim.Fill(),
-            Height      = 6,
+            Height      = 7,
             X           = 0,
             Y           = 13,
             ColorScheme = BorderScheme
@@ -279,7 +285,7 @@ public static class GuiLauncher
             Height      = Dim.Fill(),
             ColorScheme = TextScheme
         };
-        frameViewConfigInner.Add(sv, zip, remove, copy);
+        frameViewConfigInner.Add(sv, includeNsv, zip, remove, copy);
         frameViewConfig.Add(frameViewConfigInner);
 
         y = 0;
@@ -351,11 +357,13 @@ public static class GuiLauncher
             }
         };
 
-        sv.Toggled     += _ => _sv     = sv.Checked;
-        zip.Toggled    += _ => _zip    = remove.Enabled = zip.Checked;
-        remove.Toggled += _ => _remove = remove.Checked;
-        copy.Toggled   += _ => _copy   = copy.Checked;
+        sv.Toggled         += _ => _sv         = sv.Checked;
+        zip.Toggled        += _ => _zip        = remove.Enabled = zip.Checked;
+        remove.Toggled     += _ => _remove     = remove.Checked;
+        copy.Toggled       += _ => _copy       = copy.Checked;
+        includeNsv.Toggled += _ => _includeNsv = includeNsv.Checked;
 
+        sv.Toggled += _ => includeNsv.Enabled = sv.Checked;
         generateMp3.Toggled += _ =>
             _generateMp3 = ffmpegPath.Enabled = maxThread.Enabled = ffmpegPathLabel.Enabled = maxThreadLabel.Enabled = generateMp3.Checked;
         ffmpegPath.Clicked += () =>
