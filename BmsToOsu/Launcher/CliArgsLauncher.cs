@@ -198,9 +198,7 @@ internal class GenerationFailedException : Exception
 
 internal class BmsParserException : GenerationFailedException
 {
-    public BmsParserException(IEnumerable<string> generationFailedList) : base(generationFailedList)
-    {
-    }
+    public BmsParserException(IEnumerable<string> generationFailedList) : base(generationFailedList) { }
 }
 
 internal class Converter
@@ -220,16 +218,16 @@ internal class Converter
 
     public readonly HashSet<string> FilesToCopy = new();
 
-    private void ConvertOne(BmsFileData data, string mp3Path, HashSet<Sample> excludingSamples)
+    private void ConvertOne(BmsFileData data, string mp3Path, HashSet<Sample> excludingSamples, string title, string artist)
     {
         var bmsDir    = Path.GetDirectoryName(data.BmsPath) ?? "";
         var outputDir = bmsDir.Replace(_option.InputPath, _option.OutPath);
 
         Directory.CreateDirectory(outputDir);
 
-        foreach (var includePlate in new[] { true, false })
+        foreach (var includePlate in new[] {true, false})
         {
-            foreach (var sv in (!_option.NoSv && _option.IncludeNoSv) ? new[] { true, false } : new[] { _option.NoSv })
+            foreach (var sv in _option is {NoSv: false, IncludeNoSv: true} ? new[] {true, false} : new[] {_option.NoSv})
             {
                 var (osuBeatmap, ftc) = data.ToOsuBeatMap(excludingSamples, sv, mp3Path, includePlate);
 
@@ -239,7 +237,8 @@ internal class Converter
 
                 var plate = includePlate ? " (7+1K)" : "";
 
-                var osuName = $"{data.Metadata.Title} - {data.Metadata.Artist} - BMS Converted{plate} - {Path.GetFileNameWithoutExtension(data.BmsPath)}.osu";
+                var osuName =
+                    $"{title} - {artist} - BMS Converted{plate} - {Path.GetFileNameWithoutExtension(data.BmsPath)}.osu";
 
                 File.WriteAllText(Path.Join(outputDir, osuName.MakeValidFileName()), osuBeatmap);
             }
@@ -287,14 +286,17 @@ internal class Converter
 
         if (!dataList.Any()) return;
 
+        var title  = dataList.Select(x => x.Metadata.Title).ToList().MostCommonPrefix();
+        var artist = dataList.Select(x => x.Metadata.Artist).ToList().MostCommonPrefix();
+
         var filename = _option.GenerateMp3 && soundFileList != null && soundFileList.Any()
-            ? $"{dataList[0].Metadata.Title} - {dataList[0].Metadata.Artist}.mp3".MakeValidFileName()
+            ? $"{title} - {artist}.mp3".MakeValidFileName()
             : "";
 
         var mp3 = Path.Join(
             Path.GetDirectoryName(dataList[0].BmsPath)!
                 .Replace(_option.InputPath, _option.OutPath)
-          , filename
+            , filename
         );
 
         var invalidSound = new HashSet<string>();
@@ -335,7 +337,9 @@ internal class Converter
                     .ForEach(h => h.HitSoundFile = "");
                 data.SoundEffects.RemoveAll(s => invalidSound.Contains(s.SoundFile));
 
-                ConvertOne(data, filename, new HashSet<Sample>(soundFileList ?? new List<Sample>(), Sample.Comparer));
+                var soundExclude = new HashSet<Sample>(soundFileList ?? new List<Sample>(), Sample.Comparer);
+
+                ConvertOne(data, filename, soundExclude, title, artist);
             }
             catch (InvalidDataException)
             {

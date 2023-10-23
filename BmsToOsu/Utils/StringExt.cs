@@ -25,4 +25,10 @@ public static class StringExt
     {
         return s.Length == 0;
     }
+
+    public static string MostCommonPrefix(this IList<string> strings)
+    {
+        return new string(strings.MinBy(s => s.Length)?
+            .TakeWhile((c, i) => strings.All(s => s[i] == c)).ToArray());
+    }
 }
