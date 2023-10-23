@@ -151,11 +151,11 @@ public class BmsFileData
                 if (genre.IsEmpty())
                 {
                     Log.Warn($"{fp}: #genre is invalid, ignoring (Line: {i})");
-                    metadata.Tags = "BMS";
+                    metadata.Genre = "BMS";
                     continue;
                 }
 
-                metadata.Tags = genre;
+                metadata.Genre = genre;
             }
             else if (line.WithCommand("#LnObj", out var lnObj))
             {

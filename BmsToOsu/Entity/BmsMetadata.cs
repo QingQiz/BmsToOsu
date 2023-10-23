@@ -4,7 +4,7 @@ public class BmsMetadata
 {
     public string Title = "";
     public string Artist = "";
-    public string Tags = "";
+    public string Genre = "";
     public string Difficulty = "";
     public string StageFile = "";
     public string Subtitle = "";
