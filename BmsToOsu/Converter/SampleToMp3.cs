@@ -2,7 +2,7 @@
 using System.Text;
 using BmsToOsu.Entity;
 using BmsToOsu.Utils;
-using log4net;
+using NLog;
 
 namespace BmsToOsu.Converter;
 
@@ -11,7 +11,7 @@ public class SampleToMp3
     private readonly string _ffmpeg;
     private readonly Option _option;
 
-    private readonly ILog _log;
+    private readonly ILogger _log = LogManager.GetCurrentClassLogger();
     private readonly SemaphoreSlim _lock;
 
     private readonly AudioValidator _validator;
@@ -52,7 +52,6 @@ public class SampleToMp3
             _ffmpeg = ffmpeg;
         }
 
-        _log       = LogManager.GetLogger(typeof(SampleToMp3));
         _validator = new AudioValidator(_ffmpeg);
     }
 

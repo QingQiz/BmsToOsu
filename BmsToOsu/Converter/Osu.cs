@@ -1,7 +1,7 @@
 ﻿using System.Text;
 using BmsToOsu.Entity;
 using BmsToOsu.Utils;
-using log4net;
+using NLog;
 
 namespace BmsToOsu.Converter;
 
@@ -14,7 +14,7 @@ public static class Osu
 
         var fileToCp = new HashSet<string>();
         var bd       = new StringBuilder();
-        var log      = LogManager.GetLogger(typeof(Osu));
+        var log      = LogManager.GetCurrentClassLogger();
 
         bd.AppendLine("osu file format v14\n");
 

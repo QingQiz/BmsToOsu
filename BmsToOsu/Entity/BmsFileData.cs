@@ -1,7 +1,7 @@
 ﻿using System.Text;
 using BmsToOsu.BpmChangeCalc;
 using BmsToOsu.Utils;
-using log4net;
+using NLog;
 
 namespace BmsToOsu.Entity;
 
@@ -35,7 +35,7 @@ public class BmsFileData
     private readonly IndexData _indices = new();
     public List<Sample> SoundEffects { get; } = new();
 
-    private static readonly ILog Log = LogManager.GetLogger(typeof(BmsFileData));
+    private static readonly ILogger Log = LogManager.GetCurrentClassLogger();
 
     #region Parser
 

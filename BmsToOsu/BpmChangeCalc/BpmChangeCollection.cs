@@ -1,7 +1,7 @@
 ﻿using System.Globalization;
 using BmsToOsu.Entity;
 using BmsToOsu.Utils;
-using log4net;
+using NLog;
 
 namespace BmsToOsu.BpmChangeCalc;
 
@@ -15,7 +15,7 @@ public class BpmChangeCollection
         int trackNo, IEnumerable<Signal> signals, IReadOnlyDictionary<string, double> bpmChangeIndex,
         IReadOnlyDictionary<string, double> stopIndex, string fp)
     {
-        var logger = LogManager.GetLogger(GetType())!;
+        var logger = LogManager.GetCurrentClassLogger();
 
         foreach (var signal in signals)
         {

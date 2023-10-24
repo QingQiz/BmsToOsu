@@ -4,13 +4,13 @@ using BmsToOsu.Entity;
 using BmsToOsu.Utils;
 using CommandLine;
 using CommandLine.Text;
-using log4net;
+using NLog;
 
 namespace BmsToOsu.Launcher;
 
 public static class CliArgsLauncher
 {
-    private static readonly ILog Log = LogManager.GetLogger(nameof(CliArgsLauncher));
+    private static readonly ILogger Log = LogManager.GetCurrentClassLogger();
 
     private static readonly string[] AvailableBmsExt =
     {
@@ -205,7 +205,7 @@ internal class Converter
 {
     private readonly Option _option;
     private readonly SampleToMp3 _mp3Generator;
-    private readonly ILog _log;
+    private readonly ILogger _log = LogManager.GetCurrentClassLogger();
 
     public readonly List<Task> Tasks = new();
 
