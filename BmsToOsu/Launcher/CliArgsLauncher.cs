@@ -47,6 +47,40 @@ public static class CliArgsLauncher
         });
     }
 
+    private static IEnumerable<string> RetrieveFilesFromNetworkDevice(string root)
+    {
+        var d = new Dictionary<int, List<string>>
+        {
+            [0] = Directory.GetDirectories(root, "*", SearchOption.TopDirectoryOnly).ToList()
+        };
+
+        var current = 0;
+
+        while (true)
+        {
+            if (d[current].Count == 0) break;
+
+            var next = current + 1;
+
+            d[next] = new List<string>();
+
+            Parallel.ForEach(d[current].Distinct(), x =>
+            {
+                var d1 = Directory.GetDirectories(x, "*", SearchOption.TopDirectoryOnly);
+                lock (d) d[next].AddRange(d1);
+            });
+
+            current += 1;
+        }
+
+        return d.SelectMany(x => x.Value)
+            .AsParallel()
+            .SelectMany(x => Directory
+                .GetFiles(x, "*.*", SearchOption.TopDirectoryOnly))
+            .Distinct()
+            .AsSequential();
+    }
+
     public static void Convert(Option o)
     {
         o.OutPath   = Path.GetFullPath(o.OutPath);
@@ -93,15 +127,14 @@ public static class CliArgsLauncher
 
         #region parse & convert
 
-        var converter = new Converter(o);
-
-        var bms = Directory
-            .GetFiles(o.InputPath, "*.*", SearchOption.AllDirectories)
-            .Where(f => AvailableBmsExt.Any(ext => f.EndsWith(ext, StringComparison.OrdinalIgnoreCase)));
+        var bms = RetrieveFilesFromNetworkDevice(o.InputPath)
+            .Where(f => AvailableBmsExt.Any(ext => f.EndsWith(ext, StringComparison.OrdinalIgnoreCase)))
+            .ToList();
 
         var skippedFileList      = new List<string>();
         var generationFailedList = new List<string>();
 
+        var converter = new Converter(o, bms.Count);
 
         Parallel.ForEach(bms.GroupBy(Path.GetDirectoryName), groupedBms =>
         {
