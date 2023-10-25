@@ -137,15 +137,9 @@ public static class CliArgsLauncher
         if (!o.NoCopy)
         {
             Log.Info("Copying files");
-            Parallel.ForEach(converter.FilesToCopy, c =>
+            Parallel.ForEach(converter.FilesToCopy, x =>
             {
-                var dest = c.Replace(o.InputPath, o.OutPath);
-                dest = Path.Join(Path.GetDirectoryName(dest), Path.GetFileName(dest).Escape());
-
-                if (!File.Exists(dest))
-                {
-                    File.Copy(c, dest, true);
-                }
+                if (!PathExt.FileExists(x.Item2)) File.Copy(x.Item1, x.Item2);
             });
         }
 
@@ -231,9 +225,13 @@ internal class Converter
             {
                 var (osuBeatmap, ftc) = data.ToOsuBeatMap(excludingSamples, sv, mp3Path, includePlate);
 
-                foreach (var c in ftc)
-                    lock (FilesToCopy)
-                        FilesToCopy.Add(Path.Join(bmsDir, c));
+            foreach (var c in ftc)
+            {
+                var fn   = Path.GetFileName(c);
+                var dest = Path.Join(outputDir, fn.Escape());
+
+                lock (FilesToCopy) FilesToCopy.Add((Path.Join(bmsDir, c), dest));
+            }
 
                 var plate = includePlate ? " (7+1K)" : "";
 

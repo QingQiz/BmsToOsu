@@ -1,7 +1,25 @@
-﻿namespace BmsToOsu.Utils;
+﻿using System.Runtime.InteropServices;
+
+namespace BmsToOsu.Utils;
 
 public static class PathExt
 {
+#if _WINDOWS
+    [DllImport("Shlwapi.dll", SetLastError = true, CharSet = CharSet.Auto)]
+    private static extern bool PathFileExists(StringBuilder path);
+#endif
+
+    public static bool FileExists(string path)
+    {
+#if _WINDOWS
+        var builder = new StringBuilder();
+        builder.Append(path);
+        return PathFileExists(builder);
+#else
+        return File.Exists(path);
+#endif
+    }
+
     public static Dictionary<string, string> FixSoundPath(this Dictionary<string, string> audioMap, string path)
     {
         var ext  = new[] { ".ogg", ".wav", ".mp3", ".3gp" };
@@ -18,7 +36,8 @@ public static class PathExt
             {
                 var fp = prefix + e;
 
-                if (!File.Exists(fp)) continue;
+
+                if (!FileExists(fp)) continue;
 
                 dict[f] = Path.GetFileName(fp);
                 break;

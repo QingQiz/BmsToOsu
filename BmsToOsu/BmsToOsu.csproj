@@ -14,4 +14,8 @@
       <PackageReference Include="Terminal.Gui" Version="1.7.2" />
     </ItemGroup>
 
+    <PropertyGroup Condition=" '$(OS)' == 'Windows_NT' ">
+        <DefineConstants>_WINDOWS</DefineConstants>
+    </PropertyGroup>
+
 </Project>
