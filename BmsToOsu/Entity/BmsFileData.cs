@@ -411,7 +411,7 @@ public class BmsFileData
                     if (lane != -1)
                     {
                         // ln: type 1
-                        if (message == data._lnObject)
+                        if (data._lnObject.Contains(message))
                         {
                             var hitObj = data.HitObject[lane].Last();
                             hitObj.EndTime    = startTrackAt + offset;
@@ -541,11 +541,11 @@ public class BmsFileData
 
         _songFileList = new List<Sample>();
 
-        _songFileList.AddRange(SoundEffects.Select(s => new Sample(s.StartTime, s.SoundFile)));
-        _songFileList.AddRange(HitObject.Values.SelectMany(x => x).Select(x => new Sample(x.StartTime, x.HitSoundFile)));
+        _songFileList.AddRange(SoundEffects);
+        _songFileList.AddRange(HitObject.Values.SelectMany(x => x).Select(x => x.Sample));
 
         _songFileList = _songFileList
-            .Where(l => !string.IsNullOrEmpty(l.SoundFile))
+            .Where(s => s.Valid)
             .OrderBy(l => l.StartTime)
             .ThenBy(l => l.SoundFile)
             .ToList();

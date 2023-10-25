@@ -223,7 +223,8 @@ internal class Converter
         {
             foreach (var sv in _option is {NoSv: false, IncludeNoSv: true} ? new[] {true, false} : new[] {_option.NoSv})
             {
-                var (osuBeatmap, ftc) = data.ToOsuBeatMap(excludingSamples, sv, mp3Path, includePlate);
+            var (osuBeatmap, ftc) =
+                data.ToOsuBeatMap(excludingSamples, sv, parent, mp3Filename, includePlate, !_option.NoBga);
 
             foreach (var c in ftc)
             {

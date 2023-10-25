@@ -1,23 +1,17 @@
 namespace BmsToOsu.Entity;
 
-public class Sample
+public record Sample(double StartTime, string SoundFile)
 {
-    public readonly double StartTime;
-    public readonly string SoundFile;
     public static SampleEqualityComparer Comparer => new();
 
-    public Sample(double startTime, string soundFile)
-    {
-        StartTime = startTime;
-        SoundFile = soundFile;
-    }
+    public bool Valid => !string.IsNullOrEmpty(SoundFile);
 }
 
 public class SampleEqualityComparer : IEqualityComparer<Sample>
 {
     public bool Equals(Sample? x, Sample? y)
     {
-        if (x == null || y == null) return false;
+        if (x is null || y is null) return false;
 
         // maybe 10ms is better?
         return Math.Abs(x.StartTime - y.StartTime) < 5 && x.SoundFile == y.SoundFile;
