@@ -102,21 +102,6 @@ public static class CliArgsLauncher
         var skippedFileList      = new List<string>();
         var generationFailedList = new List<string>();
 
-        void Proc(params string[] path)
-        {
-            try
-            {
-                converter.Convert(path);
-            }
-            catch (BmsParserException e)
-            {
-                lock (skippedFileList) skippedFileList.AddRange(e.FailedList);
-            }
-            catch (GenerationFailedException e)
-            {
-                lock (generationFailedList) generationFailedList.AddRange(e.FailedList);
-            }
-        }
 
         Parallel.ForEach(bms.GroupBy(Path.GetDirectoryName), groupedBms =>
         {
@@ -177,6 +162,24 @@ public static class CliArgsLauncher
         }
 
         #endregion
+
+        return;
+
+        void Proc(params string[] path)
+        {
+            try
+            {
+                converter.Convert(path);
+            }
+            catch (BmsParserException e)
+            {
+                lock (skippedFileList) skippedFileList.AddRange(e.FailedList);
+            }
+            catch (GenerationFailedException e)
+            {
+                lock (generationFailedList) generationFailedList.AddRange(e.FailedList);
+            }
+        }
     }
 }
 

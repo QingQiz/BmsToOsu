@@ -213,25 +213,25 @@ public class BmsFileData
 
                 metadata.Banner = banner;
             }
-            else if (line.WithCommand("#bpm ", out var bpmDef))
+            else if (line.WithCommand("#bpm ", out var initialBpm))
             {
-                if (bpmDef.IsEmpty())
+                if (initialBpm.IsEmpty())
                 {
                     Log.Error($"{fp}: #bpm is invalid, aborting (Line: {i})");
                     throw new InvalidDataException();
                 }
 
-                if (double.TryParse(bpmDef, out var bpm))
+                if (double.TryParse(initialBpm, out var bpm))
                 {
                     bms._startingBpm = bpm;
                 }
                 else
                 {
-                    Log.Error($"{fp}: #bpm {bpmDef} is invalid, aborting (Line: {i})");
+                    Log.Error($"{fp}: #bpm {initialBpm} is invalid, aborting (Line: {i})");
                     throw new InvalidDataException();
                 }
             }
-            else if (line.WithCommand("#bpm", out var bpmChange))
+            else if (line.WithCommand("#bpm", out var bpmChange) || line.WithCommand("#exbpm", out bpmChange))
             {
                 var bpmChangeSplit = bpmChange.Split(' ').Where(c => !c.IsEmpty()).ToArray();
 
@@ -337,9 +337,9 @@ public class BmsFileData
 
     private void AddSoundEffect(double time, string target)
     {
-        if (_audioMap.ContainsKey(target))
+        if (_audioMap.TryGetValue(target, out var path))
         {
-            SoundEffects.Add(new Sample(time, _audioMap[target]));
+            SoundEffects.Add(new Sample(time, path));
         }
     }
 
@@ -432,7 +432,7 @@ public class BmsFileData
                                     StartTime    = startTrackAt + offset,
                                     IsLongNote   = true,
                                     EndTime      = null,
-                                    HitSoundFile = data._audioMap.ContainsKey(message) ? data._audioMap[message] : ""
+                                    HitSoundFile = data._audioMap.TryGetValue(message, out var value) ? value : ""
                                 };
 
                                 data.AddHitObject(lane, hitObj);
@@ -443,10 +443,10 @@ public class BmsFileData
                                 // update ln end time
                                 hitObj.EndTime = startTrackAt + offset;
 
-                                if (data._audioMap.ContainsKey(message))
+                                if (data._audioMap.TryGetValue(message, out var value))
                                 {
                                     // ln end has different hit sound
-                                    if (data._audioMap[message] != hitObj.HitSoundFile)
+                                    if (value != hitObj.HitSoundFile)
                                     {
                                         data.AddSoundEffect((double)hitObj.EndTime, message);
                                     }
@@ -464,9 +464,9 @@ public class BmsFileData
                                 IsLongNote = false
                             };
 
-                            if (data._audioMap.ContainsKey(message))
+                            if (data._audioMap.TryGetValue(message, out var value))
                             {
-                                hitObj.HitSoundFile = data._audioMap[message];
+                                hitObj.HitSoundFile = value;
                             }
 
                             data.AddHitObject(lane, hitObj);

@@ -55,14 +55,13 @@ public class SampleToMp3
         _validator = new AudioValidator(_ffmpeg);
     }
 
-    private void Generate(
-        List<Sample> soundList, string workPath, string output)
+    private void Generate(List<Sample> samples, string workPath, string output)
     {
         var filter = new FilterComplex();
 
-        foreach (var sound in soundList)
+        foreach (var sample in samples)
         {
-            filter.AddFile(sound.SoundFile, sound.StartTime);
+            filter.AddFile(sample.SoundFile, sample.StartTime);
         }
 
         var argsFile = Path.GetTempPath() + Guid.NewGuid() + ".txt";
@@ -100,62 +99,58 @@ public class SampleToMp3
         File.Delete(argsFile);
     }
 
-    public HashSet<string> GenerateMp3(List<Sample> allSoundList, string workPath, string output)
+    public HashSet<string> GenerateMp3(List<Sample> samples, string workPath, string output)
     {
-        var invalidSound = _validator.CheckSoundValidity(
-            allSoundList.Select(s => s.SoundFile).ToList(), workPath
+        var invalid = _validator.CheckSoundValidity(
+            samples.Select(s => s.SoundFile).ToList(), workPath
         ).Result.ToHashSet();
 
-        foreach (var sound in invalidSound)
+        foreach (var sample in invalid)
         {
-            _log.Error($"Invalid Sound File: {Path.Join(workPath, sound)}, ignoring...");
+            _log.Error($"Invalid Sound File: {Path.Join(workPath, sample)}, ignoring...");
         }
 
-        allSoundList = allSoundList.Where(s => !invalidSound.Contains(s.SoundFile)).ToList();
+        samples = samples.Where(s => !invalid.Contains(s.SoundFile)).ToList();
 
         // ffmpeg can open at most 1300 files
         var groupSize = Math.Max(
-            Math.Min((allSoundList.Count + _option.MaxThreads - 1) / _option.MaxThreads, 1300)
+            Math.Min((samples.Count + _option.MaxThreads - 1) / _option.MaxThreads, 1300)
           , 10
         );
 
-        var groupedSoundList = new List<(List<Sample> SoundList, string Output)>();
+        var groupedSamples = new List<(List<Sample> Samples, string Output)>();
 
         var n = 0;
 
         // group sound file list by every X elements
         while (true)
         {
-            var l = allSoundList.Skip(n++ * groupSize).Take(groupSize).ToList();
+            var l = samples.Skip(n++ * groupSize).Take(groupSize).ToList();
             if (!l.Any()) break;
 
-            groupedSoundList.Add((l, Path.GetTempPath() + Guid.NewGuid() + ".mp3"));
+            groupedSamples.Add((l, Path.GetTempPath() + Guid.NewGuid() + ".mp3"));
         }
 
         // generate mp3 in parallel
-        Parallel.ForEach(groupedSoundList, g =>
+        Parallel.ForEach(groupedSamples, g =>
         {
-            var startTime = g.SoundList.Min(x => x.StartTime);
-            var endTime   = g.SoundList.Max(x => x.StartTime);
+            var startTime = g.Samples.Min(x => x.StartTime);
+            var endTime   = g.Samples.Max(x => x.StartTime);
 
             _log.Info(
                 $"{workPath}: Generating {TimeSpan.FromMilliseconds(startTime)}-{TimeSpan.FromMilliseconds(endTime)}...");
 
-            Generate(g.SoundList, workPath, g.Output);
+            Generate(g.Samples, workPath, g.Output);
         });
 
         // merge temp mp3 files to result
-        {
-            _log.Info($"{workPath}: merging...");
+        _log.Info($"{workPath}: merging...");
 
-            var soundList = groupedSoundList.Select(x => new Sample(0d, x.Output)).ToList();
+        samples = groupedSamples.Select(x => new Sample(0d, x.Output)).ToList();
+        Generate(samples, workPath, output);
+        samples.ForEach(l => File.Delete(l.SoundFile));
 
-            Generate(soundList, workPath, output);
-
-            soundList.ForEach(l => File.Delete(l.SoundFile));
-        }
-
-        return invalidSound;
+        return invalid;
     }
 }
 
