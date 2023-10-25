@@ -10,7 +10,7 @@ public class BmsFileData
     public string BmsPath = "";
     public BmsMetadata Metadata = null!;
     private double _startingBpm = 130;
-    private string _lnObject = "";
+    private readonly List<string> _lnObject = new();
     private Dictionary<int, List<Signal>> TrackSignals { get; } = new();
 
     private List<Sample>? _songFileList;
@@ -171,7 +171,7 @@ public class BmsFileData
                     throw new InvalidDataException();
                 }
 
-                bms._lnObject = lnObj.ToLower();
+                bms._lnObject.Add(lnObj.ToLower());
             }
             else if (line.WithCommand("#PlayLevel", out var playLevel))
             {
