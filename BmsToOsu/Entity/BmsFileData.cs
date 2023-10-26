@@ -95,10 +95,10 @@ public class BmsFileData
                     case '1':
                         break;
                     case '2':
-                        Log.Error($"{fp}: Map specified #PLAYER 2; skipping");
+                        Log.Info($"{fp}: Map specified #PLAYER 2; skipping");
                         throw new InvalidDataException();
                     case '3':
-                        Log.Error($"{fp}: Double play mode; skipping");
+                        Log.Info($"{fp}: Double play mode; skipping");
                         throw new InvalidDataException();
                     default:
                         Log.Error(

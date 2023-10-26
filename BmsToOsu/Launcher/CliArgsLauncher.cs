@@ -362,7 +362,7 @@ internal class Converter
             }
         }
 
-        foreach (var data in dataList)
+        Parallel.ForEach(dataList, data =>
         {
             try
             {
@@ -378,9 +378,13 @@ internal class Converter
             }
             catch (InvalidDataException)
             {
-                parseErrorList.Add(data.BmsPath);
+                lock (parseErrorList) parseErrorList.Add(data.BmsPath);
             }
-        }
+            catch (Exception)
+            {
+                _log.Fatal("Convert Failed: " + data.BmsPath);
+            }
+        });
 
         if (parseErrorList.Any())
         {
