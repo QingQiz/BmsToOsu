@@ -136,17 +136,7 @@ public static class CliArgsLauncher
 
         var converter = new Converter(o, bms.Count);
 
-        Parallel.ForEach(bms.GroupBy(Path.GetDirectoryName), groupedBms =>
-        {
-            if (o.GenerateMp3)
-            {
-                Proc(groupedBms.ToArray());
-            }
-            else
-            {
-                Parallel.ForEach(groupedBms, g => Proc(g));
-            }
-        });
+        Parallel.ForEach(bms.GroupBy(Path.GetDirectoryName), groupedBms => Proc(groupedBms.ToArray()));
 
         #endregion
 
@@ -221,17 +211,19 @@ internal class Converter
     private readonly Option _option;
     private readonly SampleToMp3 _mp3Generator;
     private readonly ILogger _log = LogManager.GetCurrentClassLogger();
+    private readonly int _maxCount;
+    private readonly CountdownEvent _countdown;
 
-    public readonly List<Task> Tasks = new();
 
-    public Converter(Option option)
+    public Converter(Option option, int count)
     {
         _option       = option;
         _mp3Generator = new SampleToMp3(_option);
-        _log          = LogManager.GetLogger(nameof(Converter));
+        _countdown    = new CountdownEvent(count);
+        _maxCount     = count;
     }
 
-    public readonly HashSet<string> FilesToCopy = new();
+    public readonly HashSet<(string, string)> FilesToCopy = new();
 
     private void ConvertOne(BmsFileData data, string mp3Path, HashSet<Sample> excludingSamples, string title, string artist)
     {
@@ -375,9 +367,16 @@ internal class Converter
                     break;
                 }
             }
-            catch (Exception)
+            finally
             {
-                _log.Fatal("Convert Failed: " + data.BmsPath);
+                _countdown.Signal();
+
+                if (_countdown.CurrentCount % 100 == 0)
+                {
+                    _log.Info("====================================================");
+                    _log.Info($"Remaining: {_countdown.CurrentCount}/{_maxCount}");
+                    _log.Info("====================================================");
+                }
             }
         });
 
