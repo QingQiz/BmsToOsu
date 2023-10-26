@@ -93,7 +93,7 @@ public class SampleToMp3
 
         if (p.ExitCode != 0)
         {
-            throw new Exception("generation failed");
+            throw new SampleRemixException("remix failed");
         }
 
         File.Delete(argsFile);
@@ -111,6 +111,12 @@ public class SampleToMp3
         }
 
         samples = samples.Where(s => !invalid.Contains(s.SoundFile)).ToList();
+
+        if (samples.Count < Constants.MinSoundFileCount)
+        {
+            _log.Fatal($"{workPath}: too few valid audio files, aborting...");
+            throw new SampleSetTooSmallException();
+        }
 
         var groupSize = Math.Max(
             Math.Min((samples.Count + _option.MaxThreads - 1) / _option.MaxThreads, Constants.MaxFileCountFfmpegCanRead)

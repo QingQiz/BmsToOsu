@@ -216,21 +216,6 @@ public static class CliArgsLauncher
     }
 }
 
-internal class GenerationFailedException : Exception
-{
-    public readonly List<string> FailedList;
-
-    public GenerationFailedException(IEnumerable<string> generationFailedList)
-    {
-        FailedList = generationFailedList.ToList();
-    }
-}
-
-internal class BmsParserException : GenerationFailedException
-{
-    public BmsParserException(IEnumerable<string> generationFailedList) : base(generationFailedList) { }
-}
-
 internal class Converter
 {
     private readonly Option _option;
@@ -303,7 +288,7 @@ internal class Converter
             {
                 data = BmsFileData.FromFile(bmsFilePath);
             }
-            catch (InvalidDataException)
+            catch (InvalidBmsFileException)
             {
                 parseErrorList.Add(bmsFilePath);
                 continue;
@@ -376,9 +361,19 @@ internal class Converter
 
                 ConvertOne(data, filename, soundExclude, title, artist);
             }
-            catch (InvalidDataException)
+            catch (InvalidNoteConfigException)
             {
-                lock (parseErrorList) parseErrorList.Add(data.BmsPath);
+                    lock (parseErrorList) parseErrorList.Add(data.BmsPath);
+            }
+            catch (AggregateException aggregateException)
+            {
+                foreach (var e in aggregateException.Flatten().InnerExceptions)
+                {
+                    if (e is not InvalidNoteConfigException) throw e;
+
+                    lock (parseErrorList) parseErrorList.Add(data.BmsPath);
+                    break;
+                }
             }
             catch (Exception)
             {

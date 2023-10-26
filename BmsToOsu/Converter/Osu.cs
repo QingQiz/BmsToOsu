@@ -71,15 +71,15 @@ public static class Osu
                 // double note at the same time
                 if (startTime == lastStartTime)
                 {
-                    log.Error($"{data.BmsPath}: Double note at the same time.");
-                    throw new InvalidDataException();
+                    log.Error($"{data.BmsPath}: Double note at the same time. ignoring...");
+                    throw new InvalidNoteConfigException();
                 }
 
                 // note in ln
                 if (startTime < lastEndTime)
                 {
-                    log.Error($"{data.BmsPath}: Note in Ln. abort.");
-                    throw new InvalidDataException();
+                    log.Error($"{data.BmsPath}: Note in Ln. ignoring...");
+                    throw new InvalidNoteConfigException();
                 }
 
                 // ReSharper disable once PossibleUnintendedLinearSearchInSet
@@ -259,7 +259,7 @@ public static class Osu
         {
             var bga = data.BgaFrames[i];
 
-            if (!File.Exists(Path.Join(dir, bga.File)))
+            if (!PathExt.FileExists(Path.Join(dir, bga.File)))
             {
                 continue;
             }

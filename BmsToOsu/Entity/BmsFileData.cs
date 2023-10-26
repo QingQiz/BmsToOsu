@@ -87,7 +87,7 @@ public class BmsFileData
                 if (player.IsEmpty())
                 {
                     Log.Error($"{fp}: Player type cannot be determined. (Line: {i})");
-                    throw new InvalidDataException();
+                    throw new InvalidBmsFileException();
                 }
 
                 switch (player[0])
@@ -96,14 +96,14 @@ public class BmsFileData
                         break;
                     case '2':
                         Log.Info($"{fp}: Map specified #PLAYER 2; skipping");
-                        throw new InvalidDataException();
+                        throw new InvalidBmsFileException();
                     case '3':
                         Log.Info($"{fp}: Double play mode; skipping");
-                        throw new InvalidDataException();
+                        throw new InvalidBmsFileException();
                     default:
                         Log.Error(
                             $"{fp}: Even though player header was defined, there was no valid input (Line: {i})");
-                        throw new InvalidDataException();
+                        throw new InvalidBmsFileException();
                 }
             }
             else if (line.WithCommand("#Title", out var title))
@@ -162,13 +162,13 @@ public class BmsFileData
                 if (lnObj.IsEmpty())
                 {
                     Log.Error($"{fp}: #LnObj is not a valid length (Line: {i})");
-                    throw new InvalidDataException();
+                    throw new InvalidBmsFileException();
                 }
 
                 if (lnObj.Length != 2)
                 {
                     Log.Error($"{fp}: #LnObj was specified, but not 2 bytes in length. (Line: {i})");
-                    throw new InvalidDataException();
+                    throw new InvalidBmsFileException();
                 }
 
                 bms._lnObject.Add(lnObj.ToLower());
@@ -218,7 +218,7 @@ public class BmsFileData
                 if (initialBpm.IsEmpty())
                 {
                     Log.Error($"{fp}: #bpm is invalid, aborting (Line: {i})");
-                    throw new InvalidDataException();
+                    throw new InvalidBmsFileException();
                 }
 
                 if (double.TryParse(initialBpm, out var bpm))
@@ -228,7 +228,7 @@ public class BmsFileData
                 else
                 {
                     Log.Error($"{fp}: #bpm {initialBpm} is invalid, aborting (Line: {i})");
-                    throw new InvalidDataException();
+                    throw new InvalidBmsFileException();
                 }
             }
             else if (line.WithCommand("#bpm", out var bpmChange) || line.WithCommand("#exbpm", out bpmChange))
@@ -238,7 +238,7 @@ public class BmsFileData
                 if (bpmChangeSplit.Length != 2)
                 {
                     Log.Error($"{fp}: BPM change {bpmChange} is invalid, aborting (Line: {i})");
-                    throw new InvalidDataException();
+                    throw new InvalidBmsFileException();
                 }
 
                 if (double.TryParse(bpmChangeSplit[1], out var bpm))
@@ -248,7 +248,7 @@ public class BmsFileData
                 else
                 {
                     Log.Error($"{fp}: BPM change {bpmChange} is invalid, aborting (Line: {i})");
-                    throw new InvalidDataException();
+                    throw new InvalidBmsFileException();
                 }
             }
             else if (line.WithCommand("#bmp", out var bmp))
@@ -321,7 +321,7 @@ public class BmsFileData
                 else
                 {
                     Log.Error($"{fp}: Failed to parse track #, cannot continue parsing (Line: {{i}}, Content: {line})");
-                    throw new InvalidDataException();
+                    throw new InvalidBmsFileException();
                 }
             }
         }
@@ -362,7 +362,7 @@ public class BmsFileData
         if (data._audioMap.Count == 0)
         {
             Log.Error($"{fp}: The beatmap has no object, skipping...");
-            throw new InvalidDataException();
+            throw new InvalidBmsFileException();
         }
 
         var initBpm = data._startingBpm;
@@ -528,7 +528,7 @@ public class BmsFileData
         if (data.HitObject.Values.All(x => !x.Any()) && !data.SoundEffects.Any())
         {
             Log.Error($"{fp}: The beatmap has no object, skipping...");
-            throw new InvalidDataException();
+            throw new InvalidBmsFileException();
         }
 
         data.BgaFrames.Sort((a, b) => a.StartTime.CompareTo(b.StartTime));
