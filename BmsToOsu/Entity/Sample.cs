@@ -14,7 +14,7 @@ public class SampleEqualityComparer : IEqualityComparer<Sample>
         if (x is null || y is null) return false;
 
         // maybe 10ms is better?
-        return Math.Abs(x.StartTime - y.StartTime) < 5 && x.SoundFile == y.SoundFile;
+        return Math.Abs(x.StartTime - y.StartTime) < Constants.MaxSampleOffsetError && x.SoundFile == y.SoundFile;
     }
 
     public int GetHashCode(Sample obj)

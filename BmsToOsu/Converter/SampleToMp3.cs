@@ -107,14 +107,13 @@ public class SampleToMp3
 
         foreach (var sample in invalid)
         {
-            _log.Error($"Invalid Sound File: {Path.Join(workPath, sample)}, ignoring...");
+            _log.Warn($"Invalid Sound File: {Path.Join(workPath, sample)}, ignoring...");
         }
 
         samples = samples.Where(s => !invalid.Contains(s.SoundFile)).ToList();
 
-        // ffmpeg can open at most 1300 files
         var groupSize = Math.Max(
-            Math.Min((samples.Count + _option.MaxThreads - 1) / _option.MaxThreads, 1300)
+            Math.Min((samples.Count + _option.MaxThreads - 1) / _option.MaxThreads, Constants.MaxFileCountFfmpegCanRead)
           , 10
         );
 

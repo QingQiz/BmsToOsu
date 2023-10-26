@@ -32,7 +32,7 @@ public static class Logger
                             ConsoleOutputColor.White, ConsoleOutputColor.Red)
                     }
                 })
-                .WriteToFile(Path.Join(Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location),  "log.txt"))
+                .WriteToFile(Path.Join(Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location),  $"Log_[{DateTime.Now:yyyy-MM-dd hh.mm}].txt"))
                 .WithAsync();
         });
     }

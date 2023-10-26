@@ -9,7 +9,7 @@ public class BmsFileData
 {
     public string BmsPath = "";
     public BmsMetadata Metadata = null!;
-    private double _startingBpm = 130;
+    private double _startingBpm = Constants.DefaultBpm;
     private readonly List<string> _lnObject = new();
     private Dictionary<int, List<Signal>> TrackSignals { get; } = new();
 
