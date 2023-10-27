@@ -13,24 +13,47 @@ public class AudioValidator
         _ffmpeg = ffmpeg;
     }
 
-    private bool ValidateSounds(List<string> soundName, string workPath)
+    private bool ExpensiveValid(string soundName, string workPath)
+    {
+        using var p = new Process();
+
+        p.StartInfo.UseShellExecute  = false;
+        p.StartInfo.CreateNoWindow   = false;
+        p.StartInfo.WorkingDirectory = workPath;
+        p.StartInfo.FileName         = _ffmpeg;
+        p.StartInfo.Arguments        = $"\"{Path.Join(workPath, soundName)}\" -nostats -loglevel quiet -map 0:a -f mp3 -";
+
+        try
+        {
+            p.Start();
+            p.WaitForExit();
+        }
+        catch
+        {
+            return false;
+        }
+
+        return p.ExitCode == 0;
+    }
+
+    private bool ValidateSounds(IReadOnlyCollection<string> soundName, string workPath)
     {
         if (!soundName.Any()) return true;
 
-        soundName = soundName.Select(p => Path.Join(workPath, p)).ToList();
+        var fullPath = soundName.Select(p => Path.Join(workPath, p)).ToList();
 
         IEnumerable<string> toTest;
 
         lock (FileValidity)
         {
-            var tested = soundName.Where(p => FileValidity.ContainsKey(p));
+            var tested = fullPath.Where(p => FileValidity.ContainsKey(p));
 
             if (tested.Any(t => !FileValidity[t]))
             {
                 return false;
             }
 
-            toTest = soundName.Where(p => !FileValidity.ContainsKey(p));
+            toTest = fullPath.Where(p => !FileValidity.ContainsKey(p));
         }
 
         var inputFiles = string.Join(' ', toTest.Select(Path.GetFileName).Select(p => $"-i \"{p}\""));
@@ -55,31 +78,36 @@ public class AudioValidator
 
         var result = p.ExitCode == 0;
 
+        SetValidateResult(fullPath, result);
+
+        return result;
+    }
+    
+    private static void SetValidateResult(List<string> fullPath, bool result)
+    {
         lock (FileValidity)
         {
             switch (result)
             {
-                case false when soundName.Count == 1:
-                    FileValidity[soundName[0]] = result;
+                case false when fullPath.Count == 1:
+                    FileValidity[fullPath[0]] = result;
                     break;
                 case true:
-                    soundName.ForEach(s => { FileValidity[s] = true; });
+                    fullPath.ForEach(s => { FileValidity[s] = true; });
                     break;
             }
         }
-
-        return result;
     }
 
-    public async Task<List<string>> CheckSoundValidity(List<string> soundName, string workPath)
+    public async Task<HashSet<string>> CheckSoundValidity(List<string> soundName, string workPath)
     {
         soundName = soundName.Distinct().ToList();
-        
+
         var channel = Channel.CreateUnbounded<(int l, int r)>();
 
         channel.Writer.TryWrite((0, soundName.Count));
 
-        var result = new List<string>();
+        var result = new HashSet<string>();
         var tasks  = new List<Task>();
         var count  = 0;
         // lock count & result
@@ -123,6 +151,9 @@ public class AudioValidator
 
         await Task.WhenAll(tasks);
 
-        return result;
+        if (ExpensiveValid(soundName.Except(result).ToList().RandomTake(), workPath)) return result;
+
+        SetValidateResult(soundName.Select(p => Path.Join(workPath, p)).ToList(), false);
+        return soundName.ToHashSet();
     }
 }

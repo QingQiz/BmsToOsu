@@ -13,6 +13,9 @@ public class Option
     [Option("no-sv", Default = false, HelpText = "weather to include SV")]
     public bool NoSv { get; set; }
 
+    [Option("no-bga", Default = false, HelpText = "weather to include BGA")]
+    public bool NoBga { get; set; }
+
     [Option("include-no-sv", Default = false, HelpText = "weather to include NSV version")]
     public bool IncludeNoSv { get; set; }
 

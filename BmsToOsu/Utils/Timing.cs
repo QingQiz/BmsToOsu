@@ -6,7 +6,7 @@ public static class Timing
     /// <returns>the duration of a single beat of a track, in 4/4 meter, in milliseconds</returns>
     public static double BeatDuration(double bpm)
     {
-        if (bpm == 0) return 0;
+        if (bpm == 0) return 99999999;
 
         return 60.0 / bpm * 1000;
     }

@@ -1,21 +1,167 @@
 ﻿using System.Text;
 using BmsToOsu.Entity;
 using BmsToOsu.Utils;
-using log4net;
+using NLog;
 
 namespace BmsToOsu.Converter;
 
 public static class Osu
 {
     public static (string, HashSet<string> fileToCp) ToOsuBeatMap(
-        this BmsFileData data, HashSet<Sample> excludingSamples, bool noSv, string mp3 = "", bool includePlate = false)
+        this BmsFileData data, HashSet<Sample> excludingSamples, bool noSv, string parent, string mp3 = "",
+        bool includePlate = false,
+        bool includeBga = true)
     {
         var dir = Path.GetDirectoryName(data.BmsPath)!;
 
         var fileToCp = new HashSet<string>();
         var bd       = new StringBuilder();
-        var log      = LogManager.GetLogger(typeof(Osu));
 
+        GenerateMeta(data, noSv, mp3, includePlate, bd, parent);
+        GenerateBg(data, dir, fileToCp, bd);
+        // bga
+        if (includeBga) GenerateBga(data, dir, bd, fileToCp);
+        GenerateBgm(data, excludingSamples, mp3, includePlate, bd, fileToCp);
+
+        // timing points
+        GenerateTiming(data, noSv, bd);
+
+        // note/ln
+        GenerateNotes(data, excludingSamples, mp3, includePlate, bd, fileToCp);
+
+        return (bd.ToString(), fileToCp);
+    }
+
+    private static void GenerateNotes(
+        BmsFileData data, HashSet<Sample> excludingSamples, string mp3, bool includePlate,
+        StringBuilder bd, HashSet<string> fileToCp)
+    {
+        var log = LogManager.GetCurrentClassLogger();
+
+        bd.AppendLine("[HitObjects]");
+
+        var laneSize = 512.0 / (includePlate ? 8 : 7);
+
+        foreach (var (lane, objects) in data.HitObject)
+        {
+            if (!includePlate && lane == 0) continue;
+
+            var xPos = includePlate
+                ? (int)Math.Floor(laneSize * lane + laneSize / 2)
+                : (int)Math.Floor(laneSize * lane - laneSize / 2);
+
+            var lastStartTime = -1;
+            var lastEndTime   = -1;
+
+            foreach (var obj in objects.OrderBy(o => o.StartTime))
+            {
+                var objType = 1 << 0;
+
+                var ln = obj.IsLongNote && obj.EndTime != null;
+
+                if (ln)
+                {
+                    objType = 1 << 7;
+                }
+
+                if (string.IsNullOrEmpty(obj.HitSoundFile)) continue;
+
+                var startTime = (int)obj.StartTime;
+
+                // double note at the same time
+                if (startTime == lastStartTime)
+                {
+                    log.Error($"{data.BmsPath}: Double note at the same time. ignoring...");
+                    throw new InvalidNoteConfigException();
+                }
+
+                // note in ln
+                if (startTime < lastEndTime)
+                {
+                    log.Error($"{data.BmsPath}: Note in Ln. ignoring...");
+                    throw new InvalidNoteConfigException();
+                }
+
+                // ReSharper disable once PossibleUnintendedLinearSearchInSet
+                // linear search is required
+                var hitSound = string.IsNullOrEmpty(mp3)
+                    ? excludingSamples.Contains(obj.Sample, Sample.Comparer)
+                        ? ""
+                        : obj.HitSoundFile.Escape()
+                    : "";
+
+                if (!string.IsNullOrEmpty(hitSound))
+                {
+                    fileToCp.Add(obj.HitSoundFile);
+                }
+
+                //var hitSoundVolume = string.IsNullOrEmpty(hitSound) ? 30 : 0;
+                var hitSoundVolume = string.IsNullOrEmpty(hitSound) ? 0 : 100;
+
+                bd.AppendLine(ln
+                    ? $"{xPos},192,{startTime},{objType},0,{(int)obj.EndTime!}:0:0:0:{hitSoundVolume}:{hitSound}"
+                    : $"{xPos},192,{startTime},{1 << 0},0,0:0:0:{hitSoundVolume}:{hitSound}");
+
+                lastStartTime = startTime;
+                lastEndTime   = ln ? (int)obj.EndTime! : startTime;
+            }
+        }
+    }
+
+    private static void GenerateTiming(BmsFileData data, bool noSv, StringBuilder bd)
+    {
+        bd.AppendLine("[TimingPoints]");
+
+        var kv = data.TimingPoints.OrderBy(x => x.Key).ToList();
+
+        var initialBpm = kv[0].Value;
+
+        bd.AppendLine($"{0},{Timing.BeatDuration(initialBpm)},4,0,0,0,1,0");
+
+        foreach (var ((offset, bpm), i) in kv.Select((x, y) => (x, y)))
+        {
+            if (noSv && bpm == 0) continue;
+
+            bd.AppendLine($"{offset},{Timing.BeatDuration(bpm)},4,2,0,0,1,0");
+
+            if (noSv) bd.AppendLine($"{offset},-{bpm * 100 / initialBpm},4,2,0,0,0,0");
+        }
+    }
+
+    private static void GenerateBgm(
+        BmsFileData data, HashSet<Sample> excludingSamples, string mp3, bool includePlate,
+        StringBuilder bd, HashSet<string> fileToCp)
+    {
+        var samples = new List<Sample>();
+
+        // sound effect
+        samples.AddRange(data.SoundEffects.Where(sample => sample.Valid));
+
+        // hit sound -> sound effect
+        if (!string.IsNullOrEmpty(mp3))
+        {
+            samples.AddRange(data.HitObject.Values.SelectMany(h => h).Select(hitObj => hitObj.Sample));
+        }
+
+        if (!includePlate)
+        {
+            samples.AddRange(data.HitObject[0].Select(hitObj => hitObj.Sample));
+        }
+
+        foreach (var sample in samples
+                     .Where(x => x.Valid)
+                     .Except(excludingSamples, Sample.Comparer)
+                     .OrderBy(s => s.StartTime))
+        {
+            bd.AppendLine($"Sample,{(int)sample.StartTime},0,\"{sample.SoundFile.Escape()}\",100");
+            fileToCp.Add(sample.SoundFile);
+        }
+    }
+
+    private static void GenerateMeta(
+        BmsFileData data, bool noSv, string mp3, bool includePlate, StringBuilder bd,
+        string parent)
+    {
         bd.AppendLine("osu file format v14\n");
 
         bd.AppendLine("[General]");
@@ -58,12 +204,15 @@ public static class Osu
         bd.AppendLine("ApproachRate:0");
         bd.AppendLine("SliderMultiplier:1");
         bd.AppendLine("SliderTickRate:1");
+    }
 
+    private static void GenerateBg(BmsFileData data, string dir, HashSet<string> fileToCp, StringBuilder bd)
+    {
         bd.AppendLine("[Events]");
 
         var bg = "";
 
-        var imgExt = new[] { ".jpg", ".png", ".jpeg" };
+        var imgExt = new[] { ".jpg", ".png", ".jpeg", ".bmp" };
         if (File.Exists(Path.Join(dir, data.Metadata.BackBmp)))
         {
             bg = data.Metadata.BackBmp;
@@ -96,19 +245,21 @@ public static class Osu
                 .FirstOrDefault(f => imgExt.Any(e => f.EndsWith(e, StringComparison.OrdinalIgnoreCase))) ?? "";
         }
 
-        if (!string.IsNullOrEmpty(bg))
+        if (!string.IsNullOrEmpty(bg) && File.Exists(bg))
         {
             bg = Path.GetFileName(bg);
             fileToCp.Add(bg);
             bd.AppendLine($"0,0,\"{bg.Escape()}\",0,0");
         }
+    }
 
-        // bga
+    private static void GenerateBga(BmsFileData data, string dir, StringBuilder bd, HashSet<string> fileToCp)
+    {
         for (var i = 0; i < data.BgaFrames.Count; i++)
         {
             var bga = data.BgaFrames[i];
 
-            if (!File.Exists(Path.Join(dir, bga.File)))
+            if (!PathExt.FileExists(Path.Join(dir, bga.File)))
             {
                 continue;
             }
@@ -144,142 +295,5 @@ public static class Osu
 
             if (!string.IsNullOrEmpty(bga.File)) fileToCp.Add(bga.File);
         }
-
-        var samples = new List<Sample>();
-
-        // sound effect
-        samples.AddRange(data.SoundEffects
-            .Where(sample => !string.IsNullOrEmpty(sample.SoundFile))
-            // ReSharper disable once PossibleUnintendedLinearSearchInSet
-            // linear search is required
-            .Where(sample => !excludingSamples.Contains(sample, Sample.Comparer))
-        );
-
-        // hit sound -> sound effect
-        if (!string.IsNullOrEmpty(mp3))
-        {
-            samples.AddRange(data.HitObject.Values.SelectMany(h => h)
-                .Where(hitObj => !string.IsNullOrEmpty(hitObj.HitSoundFile))
-                .Select(hitObj => new Sample(hitObj.StartTime, hitObj.HitSoundFile))
-                // ReSharper disable once PossibleUnintendedLinearSearchInSet
-                // linear search is required
-                .Where(sample => !excludingSamples.Contains(sample))
-            );
-        }
-        if (!includePlate)
-        {
-            samples.AddRange(data.HitObject[0]
-                .Where(hitObj => !string.IsNullOrEmpty(hitObj.HitSoundFile))
-                .Select(hitObj => new Sample(hitObj.StartTime, hitObj.HitSoundFile))
-                // ReSharper disable once PossibleUnintendedLinearSearchInSet
-                // linear search is required
-                .Where(sample => !excludingSamples.Contains(sample))
-            );
-        }
-
-        foreach (var sample in samples.ToHashSet(Sample.Comparer).OrderBy(s => s.StartTime))
-        {
-            bd.AppendLine($"Sample,{(int)sample.StartTime},0,\"{sample.SoundFile.Escape()}\",100");
-            fileToCp.Add(sample.SoundFile);
-        }
-
-        // timing points
-        bd.AppendLine("[TimingPoints]");
-
-        foreach (var ((j, k), i) in data.TimingPoints.Select((x, y) => (x, y)))
-        {
-            var val = Timing.BeatDuration(k);
-            if (i == 0)
-            {
-                bd.AppendLine($"{j},{val},4,0,0,100,1,0");
-                if (noSv) break;
-            }
-            else
-            {
-                if (val == 0)
-                {
-                    val = 999999999.0;
-                }
-
-                // if (val < 0)
-                // {
-                //     val = Math.Abs(val);
-                // }
-
-                bd.AppendLine($"{j},{val},4,0,0,100,1,0");
-                bd.AppendLine($"{j},-100,4,0,0,100,0,0");
-            }
-        }
-
-        // note/ln
-        bd.AppendLine("[HitObjects]");
-
-        var laneSize = 512.0 / (includePlate ? 8 : 7);
-
-        foreach (var (lane, objects) in data.HitObject)
-        {
-            if (!includePlate && lane == 0) continue;
-
-            var xPos = includePlate
-                ? (int)Math.Floor(laneSize * lane + laneSize / 2)
-                : (int)Math.Floor(laneSize * lane - laneSize / 2);
-
-            var lastStartTime = -1;
-            var lastEndTime   = -1;
-
-            foreach (var obj in objects.OrderBy(o => o.StartTime))
-            {
-                var objType = 1 << 0;
-
-                var ln = obj.IsLongNote && obj.EndTime != null;
-
-                if (ln)
-                {
-                    objType = 1 << 7;
-                }
-
-                if (string.IsNullOrEmpty(obj.HitSoundFile)) continue;
-
-                var startTime = (int)obj.StartTime;
-
-                // double note at the same time
-                if (startTime == lastStartTime)
-                {
-                    log.Error($"{data.BmsPath}: Double note at the same time.");
-                    throw new InvalidDataException();
-                }
-
-                // note in ln
-                if (startTime < lastEndTime)
-                {
-                    log.Error($"{data.BmsPath}: Note in Ln. abort.");
-                    throw new InvalidDataException();
-                }
-
-                // ReSharper disable once PossibleUnintendedLinearSearchInSet
-                // linear search is required
-                var hitSound = string.IsNullOrEmpty(mp3)
-                    ? excludingSamples.Contains(new Sample(obj.StartTime, obj.HitSoundFile), Sample.Comparer)
-                        ? ""
-                        : obj.HitSoundFile.Escape()
-                    : "";
-
-                if (!string.IsNullOrEmpty(hitSound))
-                {
-                    fileToCp.Add(obj.HitSoundFile);
-                }
-
-                var hitSoundVolume = string.IsNullOrEmpty(hitSound) ? 30 : 0;
-
-                bd.AppendLine(ln
-                    ? $"{xPos},192,{startTime},{objType},0,{(int)obj.EndTime!}:0:0:0:{hitSoundVolume}:{hitSound}"
-                    : $"{xPos},192,{startTime},{1 << 0},0,0:0:0:{hitSoundVolume}:{hitSound}");
-
-                lastStartTime = startTime;
-                lastEndTime   = ln ? (int)obj.EndTime! : startTime;
-            }
-        }
-
-        return (bd.ToString(), fileToCp);
     }
 }

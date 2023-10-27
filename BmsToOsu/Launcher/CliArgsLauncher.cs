@@ -4,13 +4,13 @@ using BmsToOsu.Entity;
 using BmsToOsu.Utils;
 using CommandLine;
 using CommandLine.Text;
-using log4net;
+using NLog;
 
 namespace BmsToOsu.Launcher;
 
 public static class CliArgsLauncher
 {
-    private static readonly ILog Log = LogManager.GetLogger(nameof(CliArgsLauncher));
+    private static readonly ILogger Log = LogManager.GetCurrentClassLogger();
 
     private static readonly string[] AvailableBmsExt =
     {
@@ -45,6 +45,40 @@ public static class CliArgsLauncher
             }, e => e);
             Console.WriteLine(helpText);
         });
+    }
+
+    private static IEnumerable<string> RetrieveFilesFromNetworkDevice(string root)
+    {
+        var d = new Dictionary<int, List<string>>
+        {
+            [0] = Directory.GetDirectories(root, "*", SearchOption.TopDirectoryOnly).ToList()
+        };
+
+        var current = 0;
+
+        while (true)
+        {
+            if (d[current].Count == 0) break;
+
+            var next = current + 1;
+
+            d[next] = new List<string>();
+
+            Parallel.ForEach(d[current].Distinct(), x =>
+            {
+                var d1 = Directory.GetDirectories(x, "*", SearchOption.TopDirectoryOnly);
+                lock (d) d[next].AddRange(d1);
+            });
+
+            current += 1;
+        }
+
+        return d.SelectMany(x => x.Value)
+            .AsParallel()
+            .SelectMany(x => Directory
+                .GetFiles(x, "*.*", SearchOption.TopDirectoryOnly))
+            .Distinct()
+            .AsSequential();
     }
 
     public static void Convert(Option o)
@@ -93,42 +127,16 @@ public static class CliArgsLauncher
 
         #region parse & convert
 
-        var converter = new Converter(o);
-
-        var bms = Directory
-            .GetFiles(o.InputPath, "*.*", SearchOption.AllDirectories)
-            .Where(f => AvailableBmsExt.Any(ext => f.EndsWith(ext, StringComparison.OrdinalIgnoreCase)));
+        var bms = RetrieveFilesFromNetworkDevice(o.InputPath)
+            .Where(f => AvailableBmsExt.Any(ext => f.EndsWith(ext, StringComparison.OrdinalIgnoreCase)))
+            .ToList();
 
         var skippedFileList      = new List<string>();
         var generationFailedList = new List<string>();
 
-        void Proc(params string[] path)
-        {
-            try
-            {
-                converter.Convert(path);
-            }
-            catch (BmsParserException e)
-            {
-                lock (skippedFileList) skippedFileList.AddRange(e.FailedList);
-            }
-            catch (GenerationFailedException e)
-            {
-                lock (generationFailedList) generationFailedList.AddRange(e.FailedList);
-            }
-        }
+        var converter = new Converter(o, bms.Count);
 
-        Parallel.ForEach(bms.GroupBy(Path.GetDirectoryName), groupedBms =>
-        {
-            if (o.GenerateMp3)
-            {
-                Proc(groupedBms.ToArray());
-            }
-            else
-            {
-                Parallel.ForEach(groupedBms, g => Proc(g));
-            }
-        });
+        Parallel.ForEach(bms.GroupBy(Path.GetDirectoryName), groupedBms => Proc(groupedBms.ToArray()));
 
         #endregion
 
@@ -137,15 +145,9 @@ public static class CliArgsLauncher
         if (!o.NoCopy)
         {
             Log.Info("Copying files");
-            Parallel.ForEach(converter.FilesToCopy, c =>
+            Parallel.ForEach(converter.FilesToCopy, x =>
             {
-                var dest = c.Replace(o.InputPath, o.OutPath);
-                dest = Path.Join(Path.GetDirectoryName(dest), Path.GetFileName(dest).Escape());
-
-                if (!File.Exists(dest))
-                {
-                    File.Copy(c, dest, true);
-                }
+                if (!PathExt.FileExists(x.Item2)) File.Copy(x.Item1, x.Item2);
             });
         }
 
@@ -183,40 +185,45 @@ public static class CliArgsLauncher
         }
 
         #endregion
+
+        return;
+
+        void Proc(params string[] path)
+        {
+            try
+            {
+                converter.Convert(path);
+            }
+            catch (BmsParserException e)
+            {
+                lock (skippedFileList) skippedFileList.AddRange(e.FailedList);
+            }
+            catch (GenerationFailedException e)
+            {
+                lock (generationFailedList) generationFailedList.AddRange(e.FailedList);
+            }
+        }
     }
-}
-
-internal class GenerationFailedException : Exception
-{
-    public readonly List<string> FailedList;
-
-    public GenerationFailedException(IEnumerable<string> generationFailedList)
-    {
-        FailedList = generationFailedList.ToList();
-    }
-}
-
-internal class BmsParserException : GenerationFailedException
-{
-    public BmsParserException(IEnumerable<string> generationFailedList) : base(generationFailedList) { }
 }
 
 internal class Converter
 {
     private readonly Option _option;
     private readonly SampleToMp3 _mp3Generator;
-    private readonly ILog _log;
+    private readonly ILogger _log = LogManager.GetCurrentClassLogger();
+    private readonly int _maxCount;
+    private readonly CountdownEvent _countdown;
 
-    public readonly List<Task> Tasks = new();
 
-    public Converter(Option option)
+    public Converter(Option option, int count)
     {
         _option       = option;
         _mp3Generator = new SampleToMp3(_option);
-        _log          = LogManager.GetLogger(nameof(Converter));
+        _countdown    = new CountdownEvent(count);
+        _maxCount     = count;
     }
 
-    public readonly HashSet<string> FilesToCopy = new();
+    public readonly HashSet<(string, string)> FilesToCopy = new();
 
     private void ConvertOne(BmsFileData data, string mp3Path, HashSet<Sample> excludingSamples, string title, string artist)
     {
@@ -229,11 +236,16 @@ internal class Converter
         {
             foreach (var sv in _option is {NoSv: false, IncludeNoSv: true} ? new[] {true, false} : new[] {_option.NoSv})
             {
-                var (osuBeatmap, ftc) = data.ToOsuBeatMap(excludingSamples, sv, mp3Path, includePlate);
+            var (osuBeatmap, ftc) =
+                data.ToOsuBeatMap(excludingSamples, sv, parent, mp3Filename, includePlate, !_option.NoBga);
 
-                foreach (var c in ftc)
-                    lock (FilesToCopy)
-                        FilesToCopy.Add(Path.Join(bmsDir, c));
+            foreach (var c in ftc)
+            {
+                var fn   = Path.GetFileName(c);
+                var dest = Path.Join(outputDir, fn.Escape());
+
+                lock (FilesToCopy) FilesToCopy.Add((Path.Join(bmsDir, c), dest));
+            }
 
                 var plate = includePlate ? " (7+1K)" : "";
 
@@ -268,7 +280,7 @@ internal class Converter
             {
                 data = BmsFileData.FromFile(bmsFilePath);
             }
-            catch (InvalidDataException)
+            catch (InvalidBmsFileException)
             {
                 parseErrorList.Add(bmsFilePath);
                 continue;
@@ -327,7 +339,7 @@ internal class Converter
             }
         }
 
-        foreach (var data in dataList)
+        Parallel.ForEach(dataList, data =>
         {
             try
             {
@@ -341,11 +353,32 @@ internal class Converter
 
                 ConvertOne(data, filename, soundExclude, title, artist);
             }
-            catch (InvalidDataException)
+            catch (InvalidNoteConfigException)
             {
-                parseErrorList.Add(data.BmsPath);
+                    lock (parseErrorList) parseErrorList.Add(data.BmsPath);
             }
-        }
+            catch (AggregateException aggregateException)
+            {
+                foreach (var e in aggregateException.Flatten().InnerExceptions)
+                {
+                    if (e is not InvalidNoteConfigException) throw e;
+
+                    lock (parseErrorList) parseErrorList.Add(data.BmsPath);
+                    break;
+                }
+            }
+            finally
+            {
+                _countdown.Signal();
+
+                if (_countdown.CurrentCount % 100 == 0)
+                {
+                    _log.Info("====================================================");
+                    _log.Info($"Remaining: {_countdown.CurrentCount}/{_maxCount}");
+                    _log.Info("====================================================");
+                }
+            }
+        });
 
         if (parseErrorList.Any())
         {

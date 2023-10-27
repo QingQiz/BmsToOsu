@@ -1,7 +1,7 @@
 ﻿using System.Globalization;
 using BmsToOsu.Entity;
 using BmsToOsu.Utils;
-using log4net;
+using NLog;
 
 namespace BmsToOsu.BpmChangeCalc;
 
@@ -15,7 +15,7 @@ public class BpmChangeCollection
         int trackNo, IEnumerable<Signal> signals, IReadOnlyDictionary<string, double> bpmChangeIndex,
         IReadOnlyDictionary<string, double> stopIndex, string fp)
     {
-        var logger = LogManager.GetLogger(GetType())!;
+        var logger = LogManager.GetCurrentClassLogger();
 
         foreach (var signal in signals)
         {
@@ -29,7 +29,7 @@ public class BpmChangeCollection
                         {
                             logger.Error(
                                 $"{fp}: Measure scale is negative or 0. cannot continue parsing (Track: {trackNo})");
-                            throw new InvalidDataException();
+                            throw new InvalidBmsFileException();
                         }
 
                         MeasureScale = i;
@@ -37,7 +37,7 @@ public class BpmChangeCollection
                     else
                     {
                         logger.Error($"{fp}: Measure scale is invalid. cannot continue parsing (Track: {trackNo})");
-                        throw new InvalidDataException();
+                        throw new InvalidBmsFileException();
                     }
 
                     continue;
