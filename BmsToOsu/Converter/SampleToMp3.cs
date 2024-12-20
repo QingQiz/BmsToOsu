@@ -25,7 +25,8 @@ public class SampleToMp3
 
         if (string.IsNullOrEmpty(ffmpeg))
         {
-            foreach (var path in (Environment.GetEnvironmentVariable("PATH") ?? "").Split(';'))
+            var delimiter = Environment.OSVersion.Platform == PlatformID.Win32NT ? ';' : ':';
+            foreach (var path in (Environment.GetEnvironmentVariable("PATH") ?? "").Split(delimiter))
             {
                 var p = Path.Join(path, "ffmpeg");
 
