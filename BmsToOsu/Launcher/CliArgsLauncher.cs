@@ -51,7 +51,7 @@ public static class CliArgsLauncher
     {
         var d = new Dictionary<int, List<string>>
         {
-            [0] = Directory.GetDirectories(root, "*", SearchOption.TopDirectoryOnly).ToList()
+            [0] = new() { root }
         };
 
         var current = 0;
@@ -232,20 +232,20 @@ internal class Converter
 
         Directory.CreateDirectory(outputDir);
 
-        foreach (var includePlate in new[] {true, false})
+        foreach (var includePlate in new[] { true, false })
         {
-            foreach (var sv in _option is {NoSv: false, IncludeNoSv: true} ? new[] {true, false} : new[] {_option.NoSv})
+            foreach (var sv in _option is { NoSv: false, IncludeNoSv: true } ? new[] { true, false } : new[] { _option.NoSv })
             {
-            var (osuBeatmap, ftc) =
-                data.ToOsuBeatMap(excludingSamples, sv, parent, mp3Filename, includePlate, !_option.NoBga);
+                var (osuBeatmap, ftc) =
+                    data.ToOsuBeatMap(excludingSamples, sv, mp3Path, includePlate, !_option.NoBga);
 
-            foreach (var c in ftc)
-            {
-                var fn   = Path.GetFileName(c);
-                var dest = Path.Join(outputDir, fn.Escape());
+                foreach (var c in ftc)
+                {
+                    var fn   = Path.GetFileName(c);
+                    var dest = Path.Join(outputDir, fn.Escape());
 
-                lock (FilesToCopy) FilesToCopy.Add((Path.Join(bmsDir, c), dest));
-            }
+                    lock (FilesToCopy) FilesToCopy.Add((Path.Join(bmsDir, c), dest));
+                }
 
                 var plate = includePlate ? " (7+1K)" : "";
 
@@ -308,7 +308,7 @@ internal class Converter
         var mp3 = Path.Join(
             Path.GetDirectoryName(dataList[0].BmsPath)!
                 .Replace(_option.InputPath, _option.OutPath)
-            , filename
+          , filename
         );
 
         var invalidSound = new HashSet<string>();
@@ -355,7 +355,7 @@ internal class Converter
             }
             catch (InvalidNoteConfigException)
             {
-                    lock (parseErrorList) parseErrorList.Add(data.BmsPath);
+                lock (parseErrorList) parseErrorList.Add(data.BmsPath);
             }
             catch (AggregateException aggregateException)
             {

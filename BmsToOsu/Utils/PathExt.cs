@@ -1,4 +1,5 @@
 ﻿using System.Runtime.InteropServices;
+using System.Text;
 
 namespace BmsToOsu.Utils;
 
@@ -59,7 +60,7 @@ public static class PathExt
     public static string MakeValidFileName(this string name)
     {
         var invalidChars =
-            System.Text.RegularExpressions.Regex.Escape(new string(System.IO.Path.GetInvalidFileNameChars()));
+            System.Text.RegularExpressions.Regex.Escape(new string(Path.GetInvalidFileNameChars()));
         var invalidRegStr = string.Format(@"([{0}]*\.+$)|([{0}]+)", invalidChars);
 
         return System.Text.RegularExpressions.Regex.Replace(name, invalidRegStr, "_");

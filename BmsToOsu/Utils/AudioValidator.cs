@@ -17,11 +17,13 @@ public class AudioValidator
     {
         using var p = new Process();
 
-        p.StartInfo.UseShellExecute  = false;
-        p.StartInfo.CreateNoWindow   = false;
+        p.StartInfo.UseShellExecute        = false;
+        p.StartInfo.CreateNoWindow         = false;
+        p.StartInfo.RedirectStandardOutput = true;
+
         p.StartInfo.WorkingDirectory = workPath;
         p.StartInfo.FileName         = _ffmpeg;
-        p.StartInfo.Arguments        = $"\"{Path.Join(workPath, soundName)}\" -nostats -loglevel quiet -map 0:a -f mp3 -";
+        p.StartInfo.Arguments        = $"-i \"{soundName}\" -nostats -loglevel quiet -map 0:a -f mp3 -";
 
         try
         {
@@ -82,7 +84,7 @@ public class AudioValidator
 
         return result;
     }
-    
+
     private static void SetValidateResult(List<string> fullPath, bool result)
     {
         lock (FileValidity)
@@ -151,9 +153,11 @@ public class AudioValidator
 
         await Task.WhenAll(tasks);
 
-        if (ExpensiveValid(soundName.Except(result).ToList().RandomTake(), workPath)) return result;
-
-        SetValidateResult(soundName.Select(p => Path.Join(workPath, p)).ToList(), false);
-        return soundName.ToHashSet();
+        return result;
+        // too slow...
+        // if (ExpensiveValid(soundName.Except(result).ToList().RandomTake(), workPath)) return result;
+        //
+        // SetValidateResult(soundName.Select(p => Path.Join(workPath, p)).ToList(), false);
+        // return soundName.ToHashSet();
     }
 }

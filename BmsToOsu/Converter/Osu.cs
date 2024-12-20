@@ -8,7 +8,7 @@ namespace BmsToOsu.Converter;
 public static class Osu
 {
     public static (string, HashSet<string> fileToCp) ToOsuBeatMap(
-        this BmsFileData data, HashSet<Sample> excludingSamples, bool noSv, string parent, string mp3 = "",
+        this BmsFileData data, HashSet<Sample> excludingSamples, bool noSv, string mp3 = "",
         bool includePlate = false,
         bool includeBga = true)
     {
@@ -17,7 +17,7 @@ public static class Osu
         var fileToCp = new HashSet<string>();
         var bd       = new StringBuilder();
 
-        GenerateMeta(data, noSv, mp3, includePlate, bd, parent);
+        GenerateMeta(data, noSv, mp3, includePlate, bd);
         GenerateBg(data, dir, fileToCp, bd);
         // bga
         if (includeBga) GenerateBga(data, dir, bd, fileToCp);
@@ -159,8 +159,7 @@ public static class Osu
     }
 
     private static void GenerateMeta(
-        BmsFileData data, bool noSv, string mp3, bool includePlate, StringBuilder bd,
-        string parent)
+        BmsFileData data, bool noSv, string mp3, bool includePlate, StringBuilder bd)
     {
         bd.AppendLine("osu file format v14\n");
 

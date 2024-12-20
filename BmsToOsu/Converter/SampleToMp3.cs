@@ -46,6 +46,8 @@ public class SampleToMp3
             {
                 throw new FileNotFoundException("Can not find ffmpeg in PATH, use `--ffmpeg` to specify the path of ffmpeg");
             }
+            
+            _log.Info($"Use FFMPEG: {_ffmpeg}");
         }
         else
         {
