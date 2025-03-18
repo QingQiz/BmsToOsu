@@ -1,40 +1,31 @@
 # BMS to osu!mania 7k
 
-> Convert bms files to osu beatmap files, including 7k and 7+1k
+> 将 BMS 转换为 osu! mania 7k / 7+1k 谱面
 
-[中文](./README.cn.md)
+## 用法
 
-## Usage
-
-### Command Line Arguments (Recommended)
+### 命令行参数（推荐）
 
 ```
-  -i, --input       Required. input folder, the program will recursively search
-                    for available BMS beatmaps from this folder, available BMS
-                    beatmaps: .bms/.bml/.bme/.bmx
-  -o, --output      Required. output folder (the output folder will maintain the
-                    same directory structure as the input folder)
-  --no-sv           (Default: false) weather to include SV
-  --no-zip          (Default: false) whether to zip output folder to .osz
-  --no-copy         (Default: false) whether to copy sound/image/video files
-                    into the output folder
-  --no-remove       (Default: false) whether to remove the output folder after
-                    zipping it to .osz
-  --generate-mp3    (Default: false) generate complete song file from samples of
-                    bms
-  --ffmpeg          (Default: ) path of ffmpeg (The program will look for ffmpeg
-                    in the PATH by default)
-  --max-threads     (Default: 10) max number of ffmpeg threads
-  --help            Display this help screen.
+  -i, --input       Required. 输入文件夹，程序将在输入文件夹里递归查找可用的BMS谱面文件，可用的文件包括 .bms/.bml/.bme/.bmx
+  -o, --output      Required. 输出文件夹（输出文件夹将保持和输入文件夹相同的目录结构）
+  --no-sv           是否包含 SV（即是否包含变速），默认包含
+  --no-zip          是否将输出文件夹压缩成 .osz，默认压缩
+  --no-copy         是否将 bms 谱面中的 声音/bga/图片 文件复制到输出文件夹，默认复制
+  --no-remove       是否在将输出文件夹压缩成 .osz 后删除输出文件夹，默认删除
+  --generate-mp3    是否从 bms 的采样中生成完整 mp3 文件，默认不生成（需要有 ffmpeg）
+  --ffmpeg          ffmpeg 可执行文件的路径，不指定则会在 PATH 中找
+  --max-threads     ffmpeg 的最大调用线程数，默认 10（过大会导致在上下文切换中浪费大量的时间）
+  --help            展示帮助信息（但是英文）
 ```
 
-**It is noteworthy** that the input folder can contain multiple songs, and the output folder will process all the songs, such as
+**值得注意的是**，输入文件夹可以包含多个歌，输出问价夹会解析所有的歌曲，如
 
 ```
 .\BmsToOsu.exe -i "O:\BMS Song Pack\multi" -o aaa --no-zip
 ```
 
-where
+其中
 ```
 O:\BMS Song Pack\multi
 ├── song1
@@ -45,7 +36,7 @@ O:\BMS Song Pack\multi
     └── 2.bms
 ```
 
-The output folder is then
+则输出文件夹是
 ```
 aaa
 ├── song1
@@ -60,17 +51,17 @@ aaa
     └── 2.osu
 ```
 
-At this point, it is recommended to use the `--no-zip` parameter; otherwise, the program will package all of `aaa` into one `osz` file.
+这时候建议使用 `--no-zip` 参数，否则程序会将整个`aaa`打包成一个 `osz` 文件
 
-### Command Line GUI
+### 命令行 GUI
 
-If no startup parameters are specified, the program will launch a command line GUI, where the options correspond to the command line parameters:
+如果不指定任何启动参数，程序将启动一个命令行 GUI，其中的选项和命令行参数对应：
 
 [![image.png](https://i.postimg.cc/zDbtkwpx/image.png)](https://postimg.cc/hhn1Ddkm)
 
-### Examples
+### 示例
 
-#### Input with Single Song
+#### 输入包含单个歌曲
 
 ```
 $ .\BmsToOsu.exe \
@@ -78,12 +69,13 @@ $ .\BmsToOsu.exe \
     -o aaa --generate-mp3
 ```
 
+
 <details>
 <summary>
-Output
+输出
 </summary>
 
-``` 
+```
 |Info|Use FFMPEG: C:\bin\ffmpeg.exe
 |Info|Processing O:\BMS Song Pack\Normal\[#ねここ14歳] ☆ さくらなみきのかぜ ☆\_nekoko14_b7k.bme
 |Warn|O:\BMS Song Pack\Normal\[#ねここ14歳] ☆ さくらなみきのかぜ ☆\_nekoko14_b7k.bme: Bga frame 8a is not founded, ignoring...
@@ -127,7 +119,7 @@ Output
 ```
 </details>
 
-#### Input with Multiple Songs
+#### 输入包含多个歌曲
 
 ```
 $ .\BmsToOsu.exe -i "O:\BMS Song Pack\multi" -o bbb --generate-mp3 --no-zip
@@ -135,7 +127,7 @@ $ .\BmsToOsu.exe -i "O:\BMS Song Pack\multi" -o bbb --generate-mp3 --no-zip
 
 <details>
 <summary>
-Output
+输出
 </summary>
 
 ```
